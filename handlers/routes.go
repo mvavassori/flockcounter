@@ -7,8 +7,9 @@ import (
 func SetupRouter() *http.ServeMux {
 	router := http.NewServeMux()
 
-	router.HandleFunc("/visit/{id}", GetVisitHandler)
 	router.HandleFunc("/visits", GetVisitsHandler)
+	router.HandleFunc("/visit/", GetVisitHandler)
+	router.HandleFunc("/visit", PostVisitHandler)
 
 	return router
 }

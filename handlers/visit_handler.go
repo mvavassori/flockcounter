@@ -2,14 +2,16 @@
 package handlers
 
 import (
-	"net/http"
-	// "github.com/mvavassori/bare-analytics/models"
 	"fmt"
+	"net/http"
+
+	// "github.com/mvavassori/bare-analytics/models"
+	"github.com/mvavassori/bare-analytics/utils"
 )
 
 func GetVisitHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the ID from the URL path
-	id := r.URL.Path[len("/visit/"):]
+	id := utils.ExtractIDFromURL(r.URL.Path, `/visit/(\d+)`)
 	// Handle the specific visit with the provided ID
 	// ...
 
@@ -20,4 +22,10 @@ func GetVisitsHandler(w http.ResponseWriter, r *http.Request) {
 	// Handle getting all visits
 	// ...
 	fmt.Fprintf(w, "Getting all visits")
+}
+
+func PostVisitHandler(w http.ResponseWriter, r *http.Request) {
+	// Handle creating a new visit
+	// ...
+	fmt.Fprintf(w, "Creating a new visit")
 }
