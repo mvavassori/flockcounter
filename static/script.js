@@ -6,9 +6,7 @@ const trackVisit = () => {
     // Use toISOString for ISO 8601 format with UTC timezone
     const formattedStamp = now.toISOString();
     
-    // Wrap payload in "visit" object
     const payloadData = {
-      visit: {
         timestamp: formattedStamp,
         referrer: document.referrer || null,
         url: window.location.href,
@@ -19,26 +17,25 @@ const trackVisit = () => {
         screenWidth: window.screen.width,
         screenHeight: window.screen.height,
         location: Intl.DateTimeFormat().resolvedOptions().timeZone
-      }
     };
   
     console.log(payloadData);
   
-    // // Construct full API endpoint URL
-    // const apiUrl = "http://localhost:8080/visit";
+    // Construct full API endpoint URL
+    const apiUrl = "http://localhost:8080/api/visit";
   
-    // try {
-    //   fetch(apiUrl, {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //     },
-    //     body: JSON.stringify(payloadData),
-    //   })
+    try {
+      fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payloadData),
+      })
     
-    // } catch (error) {
-    //   console.error("Error sending visit data:", error);
-    // }
+    } catch (error) {
+      console.error("Error sending visit data:", error);
+    }
   };
   
   // Callback triggered upon DOM ready state
