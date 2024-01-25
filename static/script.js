@@ -5,6 +5,8 @@ const trackVisit = () => {
     
     // Use toISOString for ISO 8601 format with UTC timezone
     const formattedStamp = now.toISOString();
+
+    console.log(formattedStamp)
     
     const payloadData = {
         timestamp: formattedStamp,
