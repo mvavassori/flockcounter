@@ -18,7 +18,7 @@ const trackVisit = () => {
         language: navigator.language,
         screenWidth: window.screen.width,
         screenHeight: window.screen.height,
-        location: Intl.DateTimeFormat().resolvedOptions().timeZone
+        location: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   
     console.log(payloadData);

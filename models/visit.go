@@ -14,6 +14,7 @@ type VisitInsert struct {
 	ScreenWidth  int       `json:"screenWidth"`
 	ScreenHeight int       `json:"screenHeight"`
 	Location     string    `json:"location"`
+	WebsiteID    int       `json:"websiteId"` // Foreign key to Website model
 }
 
 // Visit represents the structure for retrieving visit records.
@@ -29,4 +30,5 @@ type Visit struct {
 	ScreenWidth  int       `json:"screenWidth"`
 	ScreenHeight int       `json:"screenHeight"`
 	Location     string    `json:"location"`
+	WebsiteID    int       `json:"websiteId"` // Foreign key to Website model
 }

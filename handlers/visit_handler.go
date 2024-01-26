@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -14,66 +15,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func GetVisit(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the value of the 'id' variable from the URL path
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Perform the SELECT query to get the visit with the specified ID
-		row := db.QueryRow("SELECT * FROM visits WHERE id = $1", id)
-
-		// Create a Visit struct to hold the retrieved data
-		var visit models.Visit
-		// row.Scan copies the column values from the matched row into the provided variables, each field in the Visit struct corresponds to a column in the "visits" table.
-		// It reads the values from the database row and populates the fields in the visit variable.
-		err := row.Scan(
-			&visit.ID,
-			&visit.Timestamp,
-			&visit.Referrer,
-			&visit.URL,
-			&visit.Pathname,
-			&visit.Hash,
-			&visit.UserAgent,
-			&visit.Language,
-			&visit.ScreenWidth,
-			&visit.ScreenHeight,
-			&visit.Location,
-		)
-
-		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Visit with ID %s not found", id), http.StatusNotFound)
-			return
-		} else if err != nil {
-			log.Println("Error retrieving visit:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Marshal the visit data to JSON
-		jsonResponse, err := json.Marshal(visit)
-		if err != nil {
-			log.Println("Error encoding JSON:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Set response headers and write the JSON response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
-	}
-}
-
 func GetVisits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// Perform the SELECT query to get all visits
-		rows, err := db.Query("SELECT id, timestamp, referrer, url, pathname, hash, userAgent, language, screen_width, screen_height, location FROM visits")
+		rows, err := db.Query("SELECT id, timestamp, referrer, url, pathname, hash, user_agent, language, screen_width, screen_height, location, website_id FROM visits")
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -87,7 +32,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
 			var visit models.Visit
-			err := rows.Scan(&visit.ID, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.Hash, &visit.UserAgent, &visit.Language, &visit.ScreenWidth, &visit.ScreenHeight, &visit.Location)
+			err := rows.Scan(&visit.ID, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.Hash, &visit.UserAgent, &visit.Language, &visit.ScreenWidth, &visit.ScreenHeight, &visit.Location, &visit.WebsiteID)
 			if err != nil {
 				log.Println("Error scanning visit:", err)
 				http.Error(w, "Error scanning visit", http.StatusInternalServerError)
@@ -118,6 +63,63 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func GetVisit(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the value of the 'id' variable from the URL path
+		vars := mux.Vars(r)
+		id, ok := vars["id"]
+
+		if !ok {
+			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
+			return
+		}
+
+		// Perform the SELECT query to get the visit with the specified ID
+		row := db.QueryRow("SELECT * FROM visits WHERE id = $1", id)
+
+		// Create a Visit struct to hold the retrieved data
+		var visit models.Visit
+		// row.Scan copies the column values from the matched row into the provided variables, each field in the Visit struct corresponds to a column in the "visits" table.
+		// It reads the values from the database row and populates the fields in the visit variable.
+		err := row.Scan(
+			&visit.ID,
+			&visit.Timestamp,
+			&visit.Referrer,
+			&visit.URL,
+			&visit.Pathname,
+			&visit.Hash,
+			&visit.UserAgent,
+			&visit.Location,
+			&visit.Language,
+			&visit.ScreenWidth,
+			&visit.ScreenHeight,
+			&visit.WebsiteID,
+		)
+
+		if err == sql.ErrNoRows {
+			http.Error(w, fmt.Sprintf("Visit with ID %s not found", id), http.StatusNotFound)
+			return
+		} else if err != nil {
+			log.Println("Error retrieving visit:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Marshal the visit data to JSON
+		jsonResponse, err := json.Marshal(visit)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set response headers and write the JSON response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+	}
+}
+
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create a VisitInsert struct to hold the request data
@@ -131,12 +133,31 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		url, err := url.Parse(visit.URL)
+		if err != nil {
+			log.Println("Error parsing URL", err)
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+		domain := url.Hostname()
+
+		fmt.Println(domain)
+
+		// Look up the websiteId using the domain
+		var websiteId int
+		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		if err != nil {
+			log.Println("Error looking up websiteId", err)
+			http.Error(w, "Website not found", http.StatusNotFound)
+			return
+		}
+
 		// Perform the INSERT query to add the new visit to the database
 		insertQuery := `
-			INSERT INTO visits 
-				(timestamp, referrer, url, pathname, hash, userAgent, language, screen_width, screen_height, location) 
-			VALUES 
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+			INSERT INTO visits
+				(timestamp, referrer, url, pathname, hash, user_agent, location, language, screen_width, screen_height, website_id)
+			VALUES
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 		`
 		_, err = db.Exec(insertQuery,
 			time.Now(),
@@ -145,10 +166,11 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			visit.Pathname,
 			visit.Hash,
 			visit.UserAgent,
+			visit.Location,
 			visit.Language,
 			visit.ScreenWidth,
 			visit.ScreenHeight,
-			visit.Location,
+			websiteId,
 		)
 		if err != nil {
 			fmt.Println("Error inserting visit:", err)
@@ -179,11 +201,31 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		url, err := url.Parse(updatedVisit.URL)
+		if err != nil {
+			log.Println("Error parsing URL", err)
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+		domain := url.Hostname()
+
+		fmt.Println(domain)
+
+		// Look up the websiteId using the domain
+		var websiteId int
+		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		if err != nil {
+			log.Println("Error looking up websiteId", err)
+			http.Error(w, "Website not found", http.StatusNotFound)
+			return
+		}
+
 		updateQuery := `
 			UPDATE visits
 			SET timestamp = $1, referrer = $2, url = $3, pathname = $4, hash = $5,
-				userAgent = $6, language = $7, screen_width = $8, screen_height = $9, location = $10
-			WHERE id = $11
+				user_agent = $6, location = $7, language = $8, screen_width = $9,
+				screen_height = $10, website_id = $11
+			WHERE id = $12
 		`
 		// Perform the UPDATE query to modify the visit with the specified ID
 		_, err = db.Exec(updateQuery,
@@ -193,10 +235,11 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			updatedVisit.Pathname,
 			updatedVisit.Hash,
 			updatedVisit.UserAgent,
+			updatedVisit.Location,
 			updatedVisit.Language,
 			updatedVisit.ScreenWidth,
 			updatedVisit.ScreenHeight,
-			updatedVisit.Location,
+			websiteId,
 			id,
 		)
 		if err != nil {
