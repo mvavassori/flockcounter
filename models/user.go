@@ -1,5 +1,10 @@
 package models
 
+import (
+	"errors"
+	"net/mail"
+)
+
 type User struct {
 	ID       int       `json:"id"`
 	Name     string    `json:"name"`
@@ -12,4 +17,21 @@ type UserInsert struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+func (u *UserInsert) Validate() error {
+	if u.Name == "" {
+		return errors.New("name is required")
+	}
+	if u.Email == "" {
+		return errors.New("email is required")
+	}
+	if _, err := mail.ParseAddress(u.Email); err != nil {
+		return errors.New("invalid email format")
+	}
+	if u.Password == "" {
+		return errors.New("password is required")
+	}
+	// Add more validation rules as needed
+	return nil
 }

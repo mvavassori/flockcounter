@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -74,6 +75,13 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Validate that the ID is a number
+		_, err := strconv.Atoi(id)
+		if err != nil {
+			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			return
+		}
+
 		// Perform the SELECT query to get the visit with the specified ID
 		row := db.QueryRow("SELECT * FROM visits WHERE id = $1", id)
 
@@ -81,7 +89,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 		var visit models.Visit
 		// row.Scan copies the column values from the matched row into the provided variables, each field in the Visit struct corresponds to a column in the "visits" table.
 		// It reads the values from the database row and populates the fields in the visit variable.
-		err := row.Scan(
+		err = row.Scan(
 			&visit.ID,
 			&visit.Timestamp,
 			&visit.Referrer,
@@ -192,9 +200,16 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Validate that the ID is a number
+		_, err := strconv.Atoi(id)
+		if err != nil {
+			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			return
+		}
+
 		// Read the request body to get the updated visit data
 		var updatedVisit models.Visit
-		err := json.NewDecoder(r.Body).Decode(&updatedVisit)
+		err = json.NewDecoder(r.Body).Decode(&updatedVisit)
 		if err != nil {
 			log.Println("Error decoding JSON:", err)
 			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
@@ -264,8 +279,15 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Validate that the ID is a number
+		_, err := strconv.Atoi(id)
+		if err != nil {
+			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			return
+		}
+
 		// Perform the DELETE query to delete the visit with the specified ID
-		_, err := db.Exec("DELETE FROM visits WHERE id = $1", id)
+		_, err = db.Exec("DELETE FROM visits WHERE id = $1", id)
 		if err != nil {
 			log.Println("Error deleting visit:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
