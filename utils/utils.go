@@ -1,17 +1,24 @@
 package utils
 
 import (
-	"regexp"
+	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
-// ExtractIDFromURL extracts the numeric ID from the given URL path using the provided pattern.
-func ExtractIDFromURL(path, pattern string) string {
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(path)
-
-	if len(matches) > 1 {
-		return matches[1]
+func ExtractIDFromURL(r *http.Request) (int, error) {
+	vars := mux.Vars(r)
+	idStr, ok := vars["id"]
+	if !ok {
+		return 0, errors.New("ID not provided in the URL")
 	}
 
-	return ""
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return 0, errors.New("ID must be a number")
+	}
+
+	return id, nil
 }

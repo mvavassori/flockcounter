@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/mvavassori/bare-analytics/models"
+	"github.com/mvavassori/bare-analytics/utils"
 )
 
 func GetUsers(db *sql.DB) http.HandlerFunc {
@@ -60,25 +60,29 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 			usersSlice = append(usersSlice, *user)
 		}
 
+		// w.Header().Set("Content-Type", "application/json")
+		// json.NewEncoder(w).Encode(usersSlice)
+
+		// Now, 'usweerSlice' contains all the retrieved users
+		jsonResponse, err := json.Marshal(usersSlice)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set response headers and write the JSON response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(usersSlice)
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
 	}
 }
 
 func GetUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -118,7 +122,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !found {
-			http.Error(w, fmt.Sprintf("User with ID %s not found", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("User with ID %s not found", strconv.Itoa(id)), http.StatusNotFound)
 			return
 		}
 
@@ -171,18 +175,9 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 
 func UpdateUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -211,18 +206,9 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 
 func DeleteUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 

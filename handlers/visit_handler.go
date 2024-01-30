@@ -12,8 +12,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/mvavassori/bare-analytics/models"
-
-	"github.com/gorilla/mux"
+	"github.com/mvavassori/bare-analytics/utils"
 )
 
 func GetVisits(db *sql.DB) http.HandlerFunc {
@@ -49,7 +48,6 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Now, 'visits' contains all the retrieved visits
-		// You can encode and send the visits as a JSON response
 		jsonResponse, err := json.Marshal(visits)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
@@ -67,18 +65,9 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 func GetVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the value of the 'id' variable from the URL path
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -105,7 +94,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 		)
 
 		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Visit with ID %s not found", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Visit with ID %s not found", strconv.Itoa(id)), http.StatusNotFound)
 			return
 		} else if err != nil {
 			log.Println("Error retrieving visit:", err)
@@ -185,30 +174,21 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Println("Visit inserted successfully")
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 
 func UpdateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the value of the 'id' variable from the URL path
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Read the request body to get the updated visit data
-		var updatedVisit models.Visit
+		var updatedVisit models.VisitInsert
 		err = json.NewDecoder(r.Body).Decode(&updatedVisit)
 		if err != nil {
 			log.Println("Error decoding JSON:", err)
@@ -263,26 +243,34 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Fprintf(w, "Visit with ID %s updated successfully", id)
+		// Create a VisitUpdateResponse object to return in the response
+		visitUpdateResponse := models.VisitUpdateResponse{
+			VisitInsert: updatedVisit,
+			ID:          int64(id),
+			WebsiteID:   int(websiteId),
+		}
 
+		// Convert the visitResponse object to JSON
+		jsonResponse, err := json.Marshal(visitUpdateResponse)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set the content type header and write the response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
 	}
 }
 
 func DeleteVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the value of the 'id' variable from the URL path
-		vars := mux.Vars(r)
-		id, ok := vars["id"]
-
-		if !ok {
-			http.Error(w, "ID not provided in the URL", http.StatusBadRequest)
-			return
-		}
-
-		// Validate that the ID is a number
-		_, err := strconv.Atoi(id)
+		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -294,6 +282,6 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Fprintf(w, "Visit with ID %s deleted successfully", id)
+		w.WriteHeader(http.StatusOK)
 	}
 }

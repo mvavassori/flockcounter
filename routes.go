@@ -25,12 +25,12 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.HandleFunc("/api/user/{id}", handlers.UpdateUser(db)).Methods("PUT")
 	router.HandleFunc("/api/user/{id}", handlers.DeleteUser(db)).Methods("DELETE")
 
-	// // website routes
-	// router.HandleFunc("/api/websites", handlers.GetWebsites(db)).Methods("GET")
-	// router.HandleFunc("/api/website/{id}", handlers.GetWebsite(db)).Methods("GET")
-	// router.HandleFunc("/api/website", handlers.CreateWebsite(db)).Methods("POST")
-	// router.HandleFunc("/api/website/{id}", handlers.UpdateWebsite(db)).Methods("PUT")
-	// router.HandleFunc("/api/website/{id}", handlers.DeleteWebsite(db)).Methods("DELETE")
+	// website routes
+	router.HandleFunc("/api/websites", handlers.GetWebsites(db)).Methods("GET")
+	router.HandleFunc("/api/website/{id}", handlers.GetWebsite(db)).Methods("GET")
+	router.HandleFunc("/api/website", handlers.CreateWebsite(db)).Methods("POST")
+	router.HandleFunc("/api/website/{id}", handlers.UpdateWebsite(db)).Methods("PUT")
+	router.HandleFunc("/api/website/{id}", handlers.DeleteWebsite(db)).Methods("DELETE")
 
 	return router
 }
