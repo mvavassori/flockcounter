@@ -20,5 +20,9 @@ func ExtractIDFromURL(r *http.Request) (int, error) {
 		return 0, errors.New("ID must be a number")
 	}
 
+	if id <= 0 {
+		return 0, errors.New("ID must be greater than zero")
+	}
+
 	return id, nil
 }
