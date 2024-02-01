@@ -26,3 +26,14 @@ func ExtractIDFromURL(r *http.Request) (int, error) {
 
 	return id, nil
 }
+
+func ExtractDomainFromURL(r *http.Request) (string, error) {
+	vars := mux.Vars(r)
+
+	domain, ok := vars["domain"]
+	if !ok {
+		return "", errors.New("domain not provided in the URL")
+	}
+
+	return domain, nil
+}
