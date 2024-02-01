@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
@@ -63,7 +62,7 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 		// w.Header().Set("Content-Type", "application/json")
 		// json.NewEncoder(w).Encode(usersSlice)
 
-		// Now, 'usweerSlice' contains all the retrieved users
+		// Now, 'userSlice' contains all the retrieved users
 		jsonResponse, err := json.Marshal(usersSlice)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
@@ -122,7 +121,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !found {
-			http.Error(w, fmt.Sprintf("User with ID %s not found", strconv.Itoa(id)), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("User with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 
@@ -188,7 +187,7 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec(`
+		result, err := db.Exec(`
             UPDATE users
             SET name = $1, email = $2, password = $3
             WHERE id = $4
@@ -197,6 +196,18 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Println("Error updating user:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if the user was found
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("User with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 
@@ -212,7 +223,7 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec(`
+		result, err := db.Exec(`
             DELETE FROM users
             WHERE id = $1
         `, id)
@@ -220,6 +231,18 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Println("Error deleting user:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if the user was found
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("User with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 

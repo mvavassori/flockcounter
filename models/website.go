@@ -11,7 +11,18 @@ type Website struct {
 	UserID sql.NullInt64  `json:"userId"` // Foreign key to User model
 }
 
-// This method is used to control how the Website struct is converted into JSON. Before using this function the json reponse also included the Valid key for each nullable field in the Website struct. Now it's not included anymore. The MarshalJSON is a special method in Go that gets automatically.
+type WebsiteInsert struct {
+	Domain string `json:"domain"`
+	UserID int    `json:"userId"` // Foreign key to User model
+}
+
+type WebsiteUpdateResponse struct {
+	ID     int64  `json:"id"`
+	Domain string `json:"domain"`
+	UserID int    `json:"userId"` // Foreign key to User model
+}
+
+// This method is used to control how the Website struct is converted into JSON. Before using this function the json reponse also included the Valid key for each nullable field in the Website struct. Now it's not included anymore. The MarshalJSON is a special method in Go that gets automatically triggered on json marshalling.
 func (w *Website) MarshalJSON() ([]byte, error) {
 	type Alias Website
 	return json.Marshal(&struct {
@@ -25,15 +36,4 @@ func (w *Website) MarshalJSON() ([]byte, error) {
 		UserID: w.UserID.Int64,
 		Alias:  (*Alias)(w),
 	})
-}
-
-type WebsiteInsert struct {
-	Domain string `json:"domain"`
-	UserID int    `json:"userId"` // Foreign key to User model
-}
-
-type WebsiteUpdateResponse struct {
-	ID     int64  `json:"id"`
-	Domain string `json:"domain"`
-	UserID int    `json:"userId"` // Foreign key to User model
 }

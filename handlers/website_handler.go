@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
@@ -76,7 +75,7 @@ func GetWebsite(db *sql.DB) http.HandlerFunc {
 
 		err = row.Scan(&website.ID, &website.Domain, &website.UserID)
 		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Website with ID %s not found", strconv.Itoa(id)), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		} else if err != nil {
 			log.Println("Error retrieving website:", err)
@@ -148,10 +147,22 @@ func UpdateWebsite(db *sql.DB) http.HandlerFunc {
 
 		// Update the website in the database
 		updateQuery := "UPDATE websites SET domain = $1, user_id = $2 WHERE id = $3"
-		_, err = db.Exec(updateQuery, website.Domain, website.UserID, id)
+		// _, err = db.Exec(updateQuery, website.Domain, website.UserID, id)
+		result, err := db.Exec(updateQuery, website.Domain, website.UserID, id)
 		if err != nil {
 			log.Println("Error updating website:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 
@@ -188,10 +199,21 @@ func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Delete the website from the database
-		_, err = db.Exec("DELETE FROM websites WHERE id = $1", id)
+		result, err := db.Exec("DELETE FROM websites WHERE id = $1", id)
 		if err != nil {
 			log.Println("Error deleting website:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 

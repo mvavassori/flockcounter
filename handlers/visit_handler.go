@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -94,7 +93,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 		)
 
 		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Visit with ID %s not found", strconv.Itoa(id)), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Visit with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		} else if err != nil {
 			log.Println("Error retrieving visit:", err)
@@ -223,7 +222,7 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			WHERE id = $12
 		`
 		// Perform the UPDATE query to modify the visit with the specified ID
-		_, err = db.Exec(updateQuery,
+		result, err := db.Exec(updateQuery,
 			updatedVisit.Timestamp,
 			updatedVisit.Referrer,
 			updatedVisit.URL,
@@ -240,6 +239,18 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Println("Error updating visit:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if the visit with the specified ID exists
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("Visit with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 
@@ -275,10 +286,22 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Perform the DELETE query to delete the visit with the specified ID
-		_, err = db.Exec("DELETE FROM visits WHERE id = $1", id)
+		result, err := db.Exec("DELETE FROM visits WHERE id = $1", id)
 		if err != nil {
 			log.Println("Error deleting visit:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if the visit with the specified ID exists
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if rowsAffected == 0 {
+			http.Error(w, fmt.Sprintf("Visit with id %d doesn't exist", id), http.StatusNotFound)
 			return
 		}
 
