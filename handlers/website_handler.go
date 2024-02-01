@@ -11,7 +11,6 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
-// GetWebsites retrieves all websites from the database
 func GetWebsites(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		rows, err := db.Query("SELECT id, domain, user_id FROM websites")
@@ -57,7 +56,6 @@ func GetWebsites(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// GetWebsite retrieves a single website by ID from the database
 func GetWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// extract the value id from the url
@@ -98,7 +96,6 @@ func GetWebsite(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// CreateWebsite creates a new website in the database
 func CreateWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create a WbsiteInsert struct to hold the request body data
@@ -188,7 +185,6 @@ func UpdateWebsite(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// DeleteWebsite deletes a website from the database
 func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the id from the url
