@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
+
+	// "time"
 
 	_ "github.com/lib/pq"
+	"github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 )
@@ -116,18 +118,28 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// todo
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a VisitInsert struct to hold the request data
-		var visit models.VisitInsert
+		// Create a VisitReceiver struct to hold the request data
+		var visit models.VisitReceiver
 
-		// Decode the JSON data from the request body into the VisitInsert struct
+		// Decode the JSON data from the request body into the VisitReceiver struct
 		err := json.NewDecoder(r.Body).Decode(&visit) // The Decode function modifies the contents of the passed object based on the input JSON data. By passing a pointer, any changes made by Decode will directly update the original struct rather than creating a copy and updating that.
 		if err != nil {
 			log.Println("Error decoding input data", err)
 			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 			return
 		}
+
+		ua := useragent.Parse(visit.UserAgent)
+
+		fmt.Println(ua.OS)
+		fmt.Println(ua.Name)
+		fmt.Println(ua.Mobile)
+		fmt.Println(ua.Tablet)
+		fmt.Println(ua.Desktop)
+		fmt.Println(ua.Bot)
 
 		url, err := url.Parse(visit.URL)
 		if err != nil {
@@ -138,45 +150,48 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		domain := url.Hostname()
 
 		fmt.Println(domain)
+		fmt.Println(visit.Country)
+		fmt.Println(visit.State)
 
-		// Look up the websiteId using the domain
-		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		if err != nil {
-			log.Println("Error looking up websiteId", err)
-			http.Error(w, "Website not found", http.StatusNotFound)
-			return
-		}
+		// // Look up the websiteId using the domain
+		// var websiteId int
+		// err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		// if err != nil {
+		// 	log.Println("Error looking up websiteId", err)
+		// 	http.Error(w, "Website not found", http.StatusNotFound)
+		// 	return
+		// }
 
-		// Perform the INSERT query to add the new visit to the database
-		insertQuery := `
-			INSERT INTO visits
-				(timestamp, referrer, url, pathname, hash, user_agent, location, language, screen_width, screen_height, website_id)
-			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-		`
-		_, err = db.Exec(insertQuery,
-			time.Now(),
-			visit.Referrer,
-			visit.URL,
-			visit.Pathname,
-			visit.Hash,
-			visit.UserAgent,
-			visit.Location,
-			visit.Language,
-			visit.ScreenWidth,
-			visit.ScreenHeight,
-			websiteId,
-		)
-		if err != nil {
-			fmt.Println("Error inserting visit:", err)
-			return
-		}
+		// // Perform the INSERT query to add the new visit to the database
+		// insertQuery := `
+		// 	INSERT INTO visits
+		// 		(timestamp, referrer, url, pathname, hash, user_agent, location, language, screen_width, screen_height, website_id)
+		// 	VALUES
+		// 		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+		// `
+		// _, err = db.Exec(insertQuery,
+		// 	time.Now(),
+		// 	visit.Referrer,
+		// 	visit.URL,
+		// 	visit.Pathname,
+		// 	visit.Hash,
+		// 	visit.UserAgent,
+		// 	visit.Location,
+		// 	visit.Language,
+		// 	visit.ScreenWidth,
+		// 	visit.ScreenHeight,
+		// 	websiteId,
+		// )
+		// if err != nil {
+		// 	fmt.Println("Error inserting visit:", err)
+		// 	return
+		// }
 
 		w.WriteHeader(http.StatusCreated)
 	}
 }
 
+// todo update visit with new model.
 func UpdateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the value of the 'id' variable from the URL path
