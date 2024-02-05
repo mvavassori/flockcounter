@@ -36,8 +36,12 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.HandleFunc("/api/dashboard/top-stats/{id}", handlers.GetTopStats(db)).Methods("GET")
 	router.HandleFunc("/api/dashboard/pages/{id}", handlers.GetPages(db)).Methods("GET")
 	router.HandleFunc("/api/dashboard/referrers/{id}", handlers.GetReferrers(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/locations/{id}", handlers.GetLocations(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/devices/{id}", handlers.GetDevices(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/device-types/{id}", handlers.GetDeviceTypes(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/oses/{id}", handlers.GetOSes(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/browsers/{id}", handlers.GetBrowsers(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/languages/{id}", handlers.GetLanguages(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/countries/{id}", handlers.GetCountries(db)).Methods("GET")
+	router.HandleFunc("/api/dashboard/states/{id}", handlers.GetStates(db)).Methods("GET")
 
 	return router
 }
