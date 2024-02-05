@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/mileusna/useragent"
 )
 
 func ExtractIDFromURL(r *http.Request) (int, error) {
@@ -36,4 +37,18 @@ func ExtractDomainFromURL(r *http.Request) (string, error) {
 	}
 
 	return domain, nil
+}
+
+func GetDeviceType(ua *useragent.UserAgent) string {
+	if ua.Mobile {
+		return "Mobile"
+	} else if ua.Tablet {
+		return "Tablet"
+	} else if ua.Desktop {
+		return "Desktop"
+	} else if ua.Bot {
+		return "Bot"
+	} else {
+		return "Unknown"
+	}
 }
