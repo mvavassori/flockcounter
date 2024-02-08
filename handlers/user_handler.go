@@ -157,16 +157,34 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Insert the user into the database
-		_, err = db.Exec(`
-			INSERT INTO users (name, email, password)
-			VALUES ($1, $2, $3)
-		`, user.Name, user.Email, user.Password)
+		// result, err := db.Exec(`
+		// 	INSERT INTO users (name, email, password)
+		// 	VALUES ($1, $2, $3)
+		// `, user.Name, user.Email, user.Password)
+
+		var userID int
+		// Insert the user into the database and return the ID of the newly inserted user
+		err = db.QueryRow(`
+            INSERT INTO users (name, email, password)
+            VALUES ($1, $2, $3)
+            RETURNING id
+        `, user.Name, user.Email, user.Password).Scan(&userID)
 
 		if err != nil {
 			log.Println("Error inserting user:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+
+		// Generate a token for the new user
+		tokenString, err := utils.CreateToken(int(userID))
+		if err != nil {
+			log.Println("Error creating token:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Token:", tokenString)
 
 		w.WriteHeader(http.StatusCreated)
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mvavassori/bare-analytics/handlers"
+	"github.com/mvavassori/bare-analytics/middleware"
 )
 
 func SetupRouter(db *sql.DB) *mux.Router {
@@ -20,7 +21,8 @@ func SetupRouter(db *sql.DB) *mux.Router {
 
 	// user routes
 	router.HandleFunc("/api/users", handlers.GetUsers(db)).Methods("GET")
-	router.HandleFunc("/api/user/{id}", handlers.GetUser(db)).Methods("GET")
+	router.Handle("/api/user/{id}", middleware.AuthMiddleware(handlers.GetUser(db))).Methods("GET")
+	// router.HandleFunc("/api/user/{id}", handlers.GetUser(db)).Methods("GET")
 	router.HandleFunc("/api/user", handlers.CreateUser(db)).Methods("POST")
 	router.HandleFunc("/api/user/{id}", handlers.UpdateUser(db)).Methods("PUT")
 	router.HandleFunc("/api/user/{id}", handlers.DeleteUser(db)).Methods("DELETE")
