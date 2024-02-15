@@ -12,7 +12,7 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
-// todo
+// todo check jwt package docs
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("AuthMiddleware called")

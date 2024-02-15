@@ -76,8 +76,9 @@ func CreateToken(userID int) (string, error) {
 	secret := "my_secret_key"
 	// Create the Claims
 	claims := &jwt.MapClaims{
-		"userId":    userID,
-		"expiresAt": time.Now().Add(time.Hour * 24 * 7).Unix(), // 1 week
+		"userId": userID,
+		// "expiresAt": time.Now().Add(time.Hour * 24 * 7).Unix(), // test
+		"expiresAt": time.Now().Add(time.Second * 15).Unix(), // 1 week
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
