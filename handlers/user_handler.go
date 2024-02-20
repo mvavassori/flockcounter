@@ -9,6 +9,7 @@ import (
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func GetUsers(db *sql.DB) http.HandlerFunc {
@@ -156,6 +157,14 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Hash the password
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Println("Error hashing password:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
 		// Insert the user into the database
 		// result, err := db.Exec(`
 		// 	INSERT INTO users (name, email, password)
@@ -168,7 +177,7 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
             INSERT INTO users (name, email, password)
             VALUES ($1, $2, $3)
             RETURNING id
-        `, user.Name, user.Email, user.Password).Scan(&userID)
+        `, user.Name, user.Email, string(hashedPassword)).Scan(&userID)
 
 		if err != nil {
 			log.Println("Error inserting user:", err)
@@ -265,5 +274,64 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func Login(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var user models.UserLogin
+
+		// Decode the JSON in the request body into the user struct
+		err := json.NewDecoder(r.Body).Decode(&user)
+		if err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		// Validate the user struct
+		err = user.ValidateLogin()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get the user's ID and hashed password from the database
+		var id int
+		var hashedPassword string
+		err = db.QueryRow("SELECT id, password FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword)
+		if err != nil {
+			log.Println("Error getting user:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Compare the hashed password with the plain text password
+		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
+		if err != nil {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		// If the passwords match, generate a token for the user
+		tokenString, err := utils.CreateToken(id)
+		if err != nil {
+			log.Println("Error creating token:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Token:", tokenString)
+
+		token, err := json.Marshal(map[string]string{"token": tokenString})
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set response headers and write the JSON response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(token)
 	}
 }
