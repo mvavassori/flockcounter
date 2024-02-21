@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/mvavassori/bare-analytics/middleware"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// CRUD operations for users
 
 func GetUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
@@ -83,6 +87,15 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Extract the userId from the context
+		tokenUserID := r.Context().Value(middleware.UserIdKey).(int)
+
+		// Compare the userId in the context with the userId in the request
+		if id != tokenUserID {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -186,14 +199,14 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Generate a token for the new user
-		tokenString, err := utils.CreateToken(int(userID))
-		if err != nil {
-			log.Println("Error creating token:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
+		// tokenString, err := utils.CreateToken(int(userID))
+		// if err != nil {
+		// 	log.Println("Error creating token:", err)
+		// 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		// 	return
+		// }
 
-		fmt.Println("Token:", tokenString)
+		// fmt.Println("Token:", tokenString)
 
 		w.WriteHeader(http.StatusCreated)
 	}
@@ -277,6 +290,8 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// User authentication
+
 func Login(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var user models.UserLogin
@@ -312,17 +327,46 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// If the passwords match, generate a token for the user
-		tokenString, err := utils.CreateToken(id)
+		// If the passwords match, generate an access token and a refresh token for the user
+		accessToken, err := utils.CreateAccessToken(id)
 		if err != nil {
-			log.Println("Error creating token:", err)
+			log.Println("Error creating access token:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Println("Token:", tokenString)
+		refreshToken, err := utils.CreateRefreshToken(id)
+		if err != nil {
+			log.Println("Error creating refresh token:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 
-		token, err := json.Marshal(map[string]string{"token": tokenString})
+		// Invalidate any existing refresh tokens for the user
+		_, err = db.Exec("DELETE FROM refresh_tokens WHERE user_id = $1", id)
+		if err != nil {
+			log.Println("Error invalidating refresh tokens:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Store the refresh token in the database
+		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, time.Now().Add(time.Hour*24*7))
+		if err != nil {
+			log.Println("Error storing refresh token:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Access Token:", accessToken)
+		fmt.Println("Refresh Token:", refreshToken)
+
+		tokens := map[string]string{
+			"accessToken":  accessToken,
+			"refreshToken": refreshToken,
+		}
+
+		response, err := json.Marshal(tokens)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -332,6 +376,43 @@ func Login(db *sql.DB) http.HandlerFunc {
 		// Set response headers and write the JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(token)
+		w.Write(response)
+	}
+}
+
+func RefreshToken(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the refresh token from the request
+		refreshToken := r.Header.Get("Refresh-Token")
+
+		// Look up the refresh token in the database
+		var userID int
+		var expirationTime time.Time
+		err := db.QueryRow("SELECT user_id, expires_at FROM refresh_tokens WHERE token = $1", refreshToken).Scan(&userID, &expirationTime)
+		if err != nil {
+			http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+			return
+		}
+
+		// Check if the refresh token is expired
+		if time.Now().After(expirationTime) {
+			http.Error(w, "Refresh token expired", http.StatusUnauthorized)
+			return
+		}
+
+		// Generate a new access token
+		accessToken, err := utils.CreateAccessToken(userID)
+		if err != nil {
+			http.Error(w, "Error creating access token", http.StatusInternalServerError)
+			return
+		}
+
+		accessToken = fmt.Sprintf(`{"accessToken": "%s"}`, accessToken)
+
+		// Send the new access token to the client
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(accessToken))
+		// w.Header().Set("Access-Token", accessToken)
 	}
 }

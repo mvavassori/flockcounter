@@ -3,7 +3,8 @@ package middleware
 import (
 	// "context"
 	// "log"
-	"fmt"
+	"context"
+	// "fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
-// todo check jwt package docs
+type contextKey string
+
+const UserIdKey contextKey = "userId"
+
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("AuthMiddleware called")
@@ -41,10 +45,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		claims := token.Claims.(jwt.MapClaims)
+		userId := int(claims["userId"].(float64))
 
-		fmt.Println(claims)
+		// fmt.Println(claims)
+
+		// Add the userId to the context
+		ctx := context.WithValue(r.Context(), UserIdKey, userId)
 
 		// This line is responsible for passing the request to the next handler in the chain (e.g., the GetUser function) after the middleware has done its job
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

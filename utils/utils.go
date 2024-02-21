@@ -71,14 +71,26 @@ func ValidateToken(tokenString string) (*jwt.Token, error) {
 	})
 }
 
-func CreateToken(userID int) (string, error) {
+func CreateAccessToken(userID int) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
 	// Create the Claims
 	claims := &jwt.MapClaims{
-		"userId": userID,
-		// "expiresAt": time.Now().Add(time.Hour * 24 * 7).Unix(), // test
-		"expiresAt": time.Now().Add(time.Second * 15).Unix(), // 1 week
+		"userId":    userID,
+		"expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+func CreateRefreshToken(userID int) (string, error) {
+	//todo get secret from env
+	secret := "my_secret_key"
+	// Create the Claims
+	claims := &jwt.MapClaims{
+		"userId":    userID,
+		"expiresAt": time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
