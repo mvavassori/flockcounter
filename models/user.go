@@ -16,12 +16,12 @@ type User struct {
 type UserInsert struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
-	Password string `json:"-"` //``json:"-"`
+	Password string `json:"-"`
 }
 
 type UserLogin struct {
 	Email    string `json:"email"`
-	Password string `json:"-"` //``json:"-"`
+	Password string `json:"-"`
 }
 
 func (u *UserInsert) Validate() error {
