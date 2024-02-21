@@ -9,19 +9,19 @@ type User struct {
 	ID       int       `json:"id"`
 	Name     string    `json:"name"`
 	Email    string    `json:"email"`
-	Password string    `json:"password"` //``json:"-"` to hide the field
+	Password string    `json:"-"`        //``json:"-"` to hide the field
 	Websites []Website `json:"websites"` // Slice of websites owned by the user
 }
 
 type UserInsert struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
-	Password string `json:"password"` //``json:"-"`
+	Password string `json:"-"` //``json:"-"`
 }
 
 type UserLogin struct {
 	Email    string `json:"email"`
-	Password string `json:"password"` //``json:"-"`
+	Password string `json:"-"` //``json:"-"`
 }
 
 func (u *UserInsert) Validate() error {
