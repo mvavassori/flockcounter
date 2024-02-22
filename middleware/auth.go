@@ -1,10 +1,7 @@
 package middleware
 
 import (
-	// "context"
-	// "log"
 	"context"
-	// "fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -35,6 +32,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		token, err := utils.ValidateToken(parts[1])
 		if err != nil {
+			log.Println(err.Error())
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}

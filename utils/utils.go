@@ -60,15 +60,29 @@ func GetDeviceType(ua *useragent.UserAgent) string {
 func ValidateToken(tokenString string) (*jwt.Token, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
-	// The jwt.Parse method returns a *jwt.Token and an error. The *jwt.Token is a struct that contains the claims in the JWT. The error will be non-nil if there was an error while parsing or validating the JWT.
-	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-
 		return []byte(secret), nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// Check if the token is expired
+		if exp, ok := claims["expiresAt"].(float64); ok {
+			if time.Now().Unix() > int64(exp) {
+				return nil, fmt.Errorf("token is expired")
+			}
+		}
+		return token, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
 }
 
 func CreateAccessToken(userID int) (string, error) {
@@ -78,6 +92,7 @@ func CreateAccessToken(userID int) (string, error) {
 	claims := &jwt.MapClaims{
 		"userId":    userID,
 		"expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
+		// "expiresAt": time.Now().Add(time.Second * 15).Unix(), // 15 seconds tests
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
