@@ -10,6 +10,7 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
+// added because of type complains
 type contextKey string
 
 const UserIdKey contextKey = "userId"

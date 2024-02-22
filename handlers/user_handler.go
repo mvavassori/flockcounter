@@ -100,7 +100,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		}
 
 		rows, err := db.Query(`
-            SELECT users.id, users.name, users.email, users.password, websites.id, websites.domain, websites.user_id
+            SELECT users.id, users.name, users.email, users.password, users.role, websites.id, websites.domain, websites.user_id
             FROM users
             LEFT JOIN websites ON users.id = websites.user_id
             WHERE users.id = $1
@@ -121,7 +121,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			found = true
 			var website models.Website
-			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &website.ID, &website.Domain, &website.UserID)
+			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &website.ID, &website.Domain, &website.UserID)
 			if err != nil {
 				log.Println("Error scanning user and website:", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -152,7 +152,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func CreateUser(db *sql.DB) http.HandlerFunc {
+func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var user models.UserInsert
 
@@ -161,6 +161,13 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
+		}
+
+		// Set the role based on the isAdmin parameter
+		if isAdmin {
+			user.Role = "admin"
+		} else {
+			user.Role = "user"
 		}
 
 		// Validate the user struct
@@ -187,10 +194,10 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 		var userID int
 		// Insert the user into the database and return the ID of the newly inserted user
 		err = db.QueryRow(`
-            INSERT INTO users (name, email, password)
-            VALUES ($1, $2, $3)
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
             RETURNING id
-        `, user.Name, user.Email, string(hashedPassword)).Scan(&userID)
+        `, user.Name, user.Email, string(hashedPassword), user.Role).Scan(&userID)
 
 		if err != nil {
 			log.Println("Error inserting user:", err)
@@ -310,10 +317,11 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Get the user's ID and hashed password from the database
+		// Get the user's ID, role, and hashed password from the database
 		var id int
 		var hashedPassword string
-		err = db.QueryRow("SELECT id, password FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword)
+		var role string
+		err = db.QueryRow("SELECT id, password, role FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword, &role)
 		if err != nil {
 			log.Println("Error getting user:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -328,7 +336,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		}
 
 		// If the passwords match, generate an access token and a refresh token for the user
-		accessToken, err := utils.CreateAccessToken(id)
+		accessToken, err := utils.CreateAccessToken(id, role)
 		if err != nil {
 			log.Println("Error creating access token:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -400,8 +408,16 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Fetch the role of the user from the database
+		var role string
+		err = db.QueryRow("SELECT role FROM users WHERE id = $1", userID).Scan(&role)
+		if err != nil {
+			http.Error(w, "Error fetching user role", http.StatusInternalServerError)
+			return
+		}
+
 		// Generate a new access token
-		accessToken, err := utils.CreateAccessToken(userID)
+		accessToken, err := utils.CreateAccessToken(userID, role)
 		if err != nil {
 			http.Error(w, "Error creating access token", http.StatusInternalServerError)
 			return
