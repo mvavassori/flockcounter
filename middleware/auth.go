@@ -18,6 +18,7 @@ const RoleKey contextKey = "role"
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		log.Println("AuthMiddleware called")
 
 		tokenString := r.Header.Get("Authorization")
@@ -48,7 +49,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		userId := int(claims["userId"].(float64))
 		role := claims["role"].(string)
 
-		// Add the userId and role to the context
+		// Add the userId and role to the context so that the next handler can access them (e.g., the GetUser function)
 		ctx := context.WithValue(r.Context(), UserIdKey, userId)
 		ctx = context.WithValue(ctx, RoleKey, role)
 
@@ -57,9 +58,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func RoleMiddleware(next http.Handler) http.Handler {
+func AdminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("RoleMiddleware called")
+
+		log.Println("AdminMiddleware called")
 
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
@@ -135,18 +137,11 @@ func AdminOrOwnerMiddleware(next http.Handler) http.Handler {
 		userId := int(claims["userId"].(float64))
 		role := claims["role"].(string)
 
-		// Add the userId and role to the context
-		// ctx := context.WithValue(r.Context(), UserIdKey, userId)
-		// ctx = context.WithValue(ctx, RoleKey, role)
-
 		// Check if the user is an admin or the owner of the data
 		if role != "admin" && userId != urlUserID {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-
-		// If the user is an admin or the owner of the data, call the next middleware/handler
-		// next.ServeHTTP(w, r.WithContext(ctx))
 
 		next.ServeHTTP(w, r)
 	})

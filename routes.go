@@ -13,30 +13,30 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router := mux.NewRouter()
 
 	// visit routes
-	router.HandleFunc("/api/visits", handlers.GetVisits(db)).Methods("GET")
-	router.HandleFunc("/api/visit/{id}", handlers.GetVisit(db)).Methods("GET")
-	router.HandleFunc("/api/visit", handlers.CreateVisit(db)).Methods("POST")
-	router.HandleFunc("/api/visit/{id}", handlers.UpdateVisit(db)).Methods("PUT")
-	router.HandleFunc("/api/visit/{id}", handlers.DeleteVisit(db)).Methods("DELETE")
+	router.Handle("/api/visits", middleware.AdminMiddleware(handlers.GetVisits(db))).Methods("GET")
+	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.GetVisit(db))).Methods("GET")
+	router.Handle("/api/visit", middleware.AdminMiddleware(handlers.CreateVisit(db))).Methods("POST")
+	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.UpdateVisit(db))).Methods("PUT")
+	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.DeleteVisit(db))).Methods("DELETE")
 
 	// user routes
-	router.HandleFunc("/api/users", handlers.GetUsers(db)).Methods("GET")
+	router.Handle("/api/users", middleware.AdminMiddleware(handlers.GetUsers(db))).Methods("GET")
 	router.Handle("/api/user/{id}", middleware.AdminOrOwnerMiddleware(handlers.GetUser(db))).Methods("GET")
 	router.HandleFunc("/api/user", handlers.CreateUser(db, false)).Methods("POST") // false to indicate that we'll create a regular user
-	router.HandleFunc("/api/user/{id}", handlers.UpdateUser(db)).Methods("PUT")
-	router.HandleFunc("/api/user/{id}", handlers.DeleteUser(db)).Methods("DELETE")
+	router.Handle("/api/user/{id}", middleware.AdminOrOwnerMiddleware(handlers.UpdateUser(db))).Methods("PUT")
+	router.Handle("/api/user/{id}", middleware.AdminOrOwnerMiddleware(handlers.DeleteUser(db))).Methods("DELETE")
 
 	// auth routes
 	router.HandleFunc("/api/user/login", handlers.Login(db)).Methods("POST")
 	router.HandleFunc("/api/user/refresh-token", handlers.RefreshToken(db)).Methods("POST")
 
 	// admin user routes
-	router.Handle("/api/admin/user", middleware.RoleMiddleware(handlers.CreateUser(db, true))).Methods("POST") // true to indicate that we'll create an admin user
+	router.Handle("/api/admin/user", middleware.AdminMiddleware(handlers.CreateUser(db, true))).Methods("POST") // true to indicate that we'll create an admin user
 	// router.HandleFunc("/api/admin/user", handlers.CreateUser(db, true)).Methods("POST") // just to create the first admin user
 
 	// website routes
-	router.HandleFunc("/api/websites", handlers.GetWebsites(db)).Methods("GET")
-	router.HandleFunc("/api/website/{id}", handlers.GetWebsite(db)).Methods("GET")
+	router.Handle("/api/websites", middleware.AdminMiddleware(handlers.GetWebsites(db))).Methods("GET")
+	router.Handle("/api/website/{id}", handlers.GetWebsite(db)).Methods("GET")
 	router.HandleFunc("/api/website", handlers.CreateWebsite(db)).Methods("POST")
 	router.HandleFunc("/api/website/{id}", handlers.UpdateWebsite(db)).Methods("PUT")
 	router.HandleFunc("/api/website/{id}", handlers.DeleteWebsite(db)).Methods("DELETE")
