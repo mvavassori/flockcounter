@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/middleware"
+	// "github.com/mvavassori/bare-analytics/middleware"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 	"golang.org/x/crypto/bcrypt"
@@ -90,14 +90,14 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Extract the userId from the context
-		tokenUserID := r.Context().Value(middleware.UserIdKey).(int)
+		// // Extract the userId from the context
+		// tokenUserID := r.Context().Value(middleware.UserIdKey).(int)
 
-		// Compare the userId in the context with the userId in the request
-		if id != tokenUserID {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		// // Compare the userId in the context with the userId in the request
+		// if id != tokenUserID {
+		// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		// 	return
+		// }
 
 		rows, err := db.Query(`
             SELECT users.id, users.name, users.email, users.password, users.role, websites.id, websites.domain, websites.user_id
@@ -366,9 +366,6 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Println("Access Token:", accessToken)
-		fmt.Println("Refresh Token:", refreshToken)
-
 		tokens := map[string]string{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
@@ -429,6 +426,5 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(accessToken))
-		// w.Header().Set("Access-Token", accessToken)
 	}
 }
