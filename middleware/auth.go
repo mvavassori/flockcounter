@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"strings"
@@ -145,4 +146,87 @@ func AdminOrOwnerMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// ! check if this works
+func UserWebsiteMiddleware(db *sql.DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Println("UserWebsiteMiddleware called")
+
+			urlWebsiteID, err := utils.ExtractIDFromURL(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			tokenString := r.Header.Get("Authorization")
+			if tokenString == "" {
+				http.Error(w, "Authorization header required", http.StatusUnauthorized)
+				return
+			}
+
+			parts := strings.Split(tokenString, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			token, err := utils.ValidateToken(parts[1])
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			if !token.Valid {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			claims := token.Claims.(jwt.MapClaims)
+			userID := int(claims["userId"].(float64))
+			role := claims["role"].(string)
+
+			// Query the database to get the websites the current user owns
+			rows, err := db.Query("SELECT id FROM websites WHERE user_id = $1", userID)
+			if err != nil {
+				log.Println("Error querying websites:", err)
+				http.Error(w, "Error retrieving websites", http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			// Collect the website IDs
+			var websiteIDs []int
+			for rows.Next() {
+				var websiteID int
+				err := rows.Scan(&websiteID)
+				if err != nil {
+					log.Println("Error scanning website:", err)
+					http.Error(w, "Error scanning website", http.StatusInternalServerError)
+					return
+				}
+				websiteIDs = append(websiteIDs, websiteID)
+			}
+
+			// Check if the user is an admin or the owner of the website
+			isAdmin := (role == "admin")
+			isOwner := false
+			for _, id := range websiteIDs {
+				if id == urlWebsiteID {
+					isOwner = true
+					break
+				}
+			}
+
+			if !isAdmin && !isOwner {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			// Proceed to the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
 }
