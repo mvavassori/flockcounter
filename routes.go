@@ -36,22 +36,21 @@ func SetupRouter(db *sql.DB) *mux.Router {
 
 	// website routes
 	router.Handle("/api/websites", middleware.AdminMiddleware(handlers.GetWebsites(db))).Methods("GET")
-	// ? pass the db
-	router.Handle("/api/website/{id}", middleware.UserWebsiteMiddleware(db)(handlers.GetWebsite(db))).Methods("GET")
-	router.HandleFunc("/api/website", handlers.CreateWebsite(db)).Methods("POST")
-	router.HandleFunc("/api/website/{id}", handlers.UpdateWebsite(db)).Methods("PUT")
-	router.HandleFunc("/api/website/{id}", handlers.DeleteWebsite(db)).Methods("DELETE")
+	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetWebsite(db))).Methods("GET")
+	router.Handle("/api/website", middleware.AdminOrAuthMiddleware(handlers.CreateWebsite(db))).Methods("POST")
+	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.UpdateWebsite(db))).Methods("PUT")
+	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.DeleteWebsite(db))).Methods("DELETE")
 
 	// dashboard routes
-	router.HandleFunc("/api/dashboard/top-stats/{id}", handlers.GetTopStats(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/pages/{id}", handlers.GetPages(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/referrers/{id}", handlers.GetReferrers(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/device-types/{id}", handlers.GetDeviceTypes(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/oses/{id}", handlers.GetOSes(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/browsers/{id}", handlers.GetBrowsers(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/languages/{id}", handlers.GetLanguages(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/countries/{id}", handlers.GetCountries(db)).Methods("GET")
-	router.HandleFunc("/api/dashboard/states/{id}", handlers.GetStates(db)).Methods("GET")
+	router.Handle("/api/dashboard/top-stats/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetTopStats(db))).Methods("GET")
+	router.Handle("/api/dashboard/pages/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetPages(db))).Methods("GET")
+	router.Handle("/api/dashboard/referrers/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetReferrers(db))).Methods("GET")
+	router.Handle("/api/dashboard/device-types/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetDeviceTypes(db))).Methods("GET")
+	router.Handle("/api/dashboard/oses/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetOSes(db))).Methods("GET")
+	router.Handle("/api/dashboard/browsers/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetBrowsers(db))).Methods("GET")
+	router.Handle("/api/dashboard/languages/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetLanguages(db))).Methods("GET")
+	router.Handle("/api/dashboard/countries/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCountries(db))).Methods("GET")
+	router.Handle("/api/dashboard/states/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetStates(db))).Methods("GET")
 
 	return router
 }

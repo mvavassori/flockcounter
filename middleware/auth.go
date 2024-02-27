@@ -17,10 +17,10 @@ type contextKey string
 const UserIdKey contextKey = "userId"
 const RoleKey contextKey = "role"
 
-func AuthMiddleware(next http.Handler) http.Handler {
+func AdminOrAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		log.Println("AuthMiddleware called")
+		log.Println("AdminOrAuthMiddleware called")
 
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
@@ -49,6 +49,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		claims := token.Claims.(jwt.MapClaims)
 		userId := int(claims["userId"].(float64))
 		role := claims["role"].(string)
+
+		// Check if the user is logged in or is an admin
+		if userId <= 0 && role != "admin" {
+			http.Error(w, "Unauthorized access", http.StatusUnauthorized)
+			return
+		}
 
 		// Add the userId and role to the context so that the next handler can access them (e.g., the GetUser function)
 		ctx := context.WithValue(r.Context(), UserIdKey, userId)
@@ -148,11 +154,10 @@ func AdminOrOwnerMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// ! check if this works
-func UserWebsiteMiddleware(db *sql.DB) func(http.Handler) http.Handler {
+func AdminOrUserWebsiteMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Println("UserWebsiteMiddleware called")
+			log.Println("AdminOrUserWebsiteMiddleware called")
 
 			urlWebsiteID, err := utils.ExtractIDFromURL(r)
 			if err != nil {

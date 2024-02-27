@@ -177,6 +177,25 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 			return
 		}
 
+		// Check if a user with the same email already exists in the database
+		var existingEmail string
+		err = db.QueryRow(`
+			SELECT email
+			FROM users
+			WHERE email = $1
+		`, user.Email).Scan(&existingEmail)
+
+		if err == nil {
+			// If a user with the same email already exists, return a conflict error
+			http.Error(w, "Conflict", http.StatusConflict)
+			return
+		} else if err != sql.ErrNoRows {
+			// If there was an error executing the query, return an internal server error
+			log.Println("Error checking for existing email:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
 		// Hash the password
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {

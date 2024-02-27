@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/mvavassori/bare-analytics/middleware"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 )
@@ -98,7 +99,15 @@ func GetWebsite(db *sql.DB) http.HandlerFunc {
 
 func CreateWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a WbsiteInsert struct to hold the request body data
+
+		// Get the userId from the context
+		userId, ok := r.Context().Value(middleware.UserIdKey).(int)
+		if !ok {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Create a WebsiteInsert struct to hold the request body data
 		var website models.WebsiteInsert
 
 		// Decide the JSON data from the request body into the WebsiteInsert struct
@@ -106,6 +115,28 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Println("Error decoding JSON:", err)
 			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		// Set the UserID field in the WebsiteInsert struct to the userId retrieved from the context
+		website.UserID = userId
+
+		// Check if a website with the same domain already exists in the database
+		var existingDomain string
+		err = db.QueryRow(`
+			SELECT domain
+			FROM websites
+			WHERE domain = $1
+		`, website.Domain).Scan(&existingDomain)
+
+		if err == nil {
+			// If a website with the same domain already exists, return a conflict error
+			http.Error(w, "Conflict", http.StatusConflict)
+			return
+		} else if err != sql.ErrNoRows {
+			// If there was an error executing the query, return an internal server error
+			log.Println("Error checking for existing domain:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
