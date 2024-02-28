@@ -35,13 +35,15 @@ func ValidateToken(tokenString string) (*jwt.Token, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-func CreateAccessToken(userID int, role string) (string, error) {
+func CreateAccessToken(userID int, role string, name string, email string) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
 	// Create the Claims
 	claims := &jwt.MapClaims{
 		"userId":    userID,
 		"role":      role,
+		"name":      name,
+		"email":     email,
 		"expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
 		// "expiresAt": time.Now().Add(time.Second * 15).Unix(), // 15 seconds tests
 	}

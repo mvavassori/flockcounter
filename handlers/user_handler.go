@@ -340,7 +340,9 @@ func Login(db *sql.DB) http.HandlerFunc {
 		var id int
 		var hashedPassword string
 		var role string
-		err = db.QueryRow("SELECT id, password, role FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword, &role)
+		var name string
+		var email string
+		err = db.QueryRow("SELECT id, password, role, name, email FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword, &role, &name, &email)
 		if err != nil {
 			log.Println("Error getting user:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -355,7 +357,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		}
 
 		// If the passwords match, generate an access token and a refresh token for the user
-		accessToken, err := utils.CreateAccessToken(id, role)
+		accessToken, err := utils.CreateAccessToken(id, role, name, email)
 		if err != nil {
 			log.Println("Error creating access token:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -426,14 +428,16 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 
 		// Fetch the role of the user from the database
 		var role string
-		err = db.QueryRow("SELECT role FROM users WHERE id = $1", userID).Scan(&role)
+		var name string
+		var email string
+		err = db.QueryRow("SELECT role, name, email FROM users WHERE id = $1", userID).Scan(&role, &name, &email)
 		if err != nil {
 			http.Error(w, "Error fetching user role", http.StatusInternalServerError)
 			return
 		}
 
 		// Generate a new access token
-		accessToken, err := utils.CreateAccessToken(userID, role)
+		accessToken, err := utils.CreateAccessToken(userID, role, name, email)
 		if err != nil {
 			http.Error(w, "Error creating access token", http.StatusInternalServerError)
 			return
