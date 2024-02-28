@@ -155,6 +155,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 		domain := url.Hostname()
 
+		// fmt.Println(domain)
+
 		// Look up the websiteId using the domain
 		var websiteId int
 		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)

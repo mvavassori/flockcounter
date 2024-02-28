@@ -15,7 +15,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	// visit routes
 	router.Handle("/api/visits", middleware.AdminMiddleware(handlers.GetVisits(db))).Methods("GET")
 	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.GetVisit(db))).Methods("GET")
-	router.Handle("/api/visit", middleware.AdminMiddleware(handlers.CreateVisit(db))).Methods("POST")
+	router.HandleFunc("/api/visit", handlers.CreateVisit(db)).Methods("POST")
 	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.UpdateVisit(db))).Methods("PUT")
 	router.Handle("/api/visit/{id}", middleware.AdminMiddleware(handlers.DeleteVisit(db))).Methods("DELETE")
 
