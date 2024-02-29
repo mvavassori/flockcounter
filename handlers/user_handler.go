@@ -387,12 +387,14 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		tokens := map[string]string{
+		data := map[string]string{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
+			"name":         name,
+			"email":        email,
 		}
 
-		response, err := json.Marshal(tokens)
+		response, err := json.Marshal(data)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
