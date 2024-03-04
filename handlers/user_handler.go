@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	// "github.com/mvavassori/bare-analytics/middleware"
@@ -392,6 +393,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 			"refreshToken": refreshToken,
 			"name":         name,
 			"email":        email,
+			"id":           strconv.Itoa(id),
 		}
 
 		response, err := json.Marshal(data)
