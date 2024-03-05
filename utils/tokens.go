@@ -40,12 +40,12 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 	secret := "my_secret_key"
 	// Create the Claims
 	claims := &jwt.MapClaims{
-		"userId":    userID,
-		"role":      role,
-		"name":      name,
-		"email":     email,
-		"expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
-		// "expiresAt": time.Now().Add(time.Second * 15).Unix(), // 15 seconds tests
+		"userId": userID,
+		"role":   role,
+		"name":   name,
+		"email":  email,
+		// "expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
+		"expiresAt": time.Now().Add(time.Second * 15).Unix(), // 15 seconds tests
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

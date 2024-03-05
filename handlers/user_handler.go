@@ -3,10 +3,12 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	// "github.com/mvavassori/bare-analytics/middleware"
@@ -394,6 +396,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 			"name":         name,
 			"email":        email,
 			"id":           strconv.Itoa(id),
+			"expiresAt":    strconv.Itoa(int(time.Now().Add(time.Second * 15).Unix())),
 		}
 
 		response, err := json.Marshal(data)
@@ -413,14 +416,28 @@ func Login(db *sql.DB) http.HandlerFunc {
 func RefreshToken(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the refresh token from the request
-		refreshToken := r.Header.Get("Refresh-Token")
+
+		tokenString := r.Header.Get("Authorization")
+
+		if tokenString == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		parts := strings.Split(tokenString, " ")
+		if len(parts) != 2 || parts[0] != "Refresh" {
+			http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		refreshToken := parts[1]
 
 		// Look up the refresh token in the database
 		var userID int
 		var expirationTime time.Time
 		err := db.QueryRow("SELECT user_id, expires_at FROM refresh_tokens WHERE token = $1", refreshToken).Scan(&userID, &expirationTime)
 		if err != nil {
-			http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid refresh token"))
 			return
 		}
 
@@ -447,11 +464,23 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		accessToken = fmt.Sprintf(`{"accessToken": "%s"}`, accessToken)
+		// accessToken = fmt.Sprintf(`{"accessToken": "%s"}`, accessToken)
+
+		data := map[string]string{
+			"accessToken": accessToken,
+			"expiresAt":   strconv.Itoa(int(time.Now().Add(time.Second * 15).Unix())),
+		}
+
+		response, err := json.Marshal(data)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 
 		// Send the new access token to the client
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(accessToken))
+		w.Write(response)
 	}
 }
