@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -390,13 +389,21 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		data := map[string]string{
+		backendTokens := map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
-			"name":         name,
-			"email":        email,
-			"id":           strconv.Itoa(id),
-			"expiresAt":    strconv.Itoa(int(time.Now().Add(time.Second * 15).Unix())),
+			"expiresAt":    time.Now().Add(time.Second * 15).Unix(),
+		}
+
+		userData := map[string]interface{}{
+			"name":  name,
+			"email": email,
+			"id":    id,
+		}
+
+		data := map[string]interface{}{
+			"backendTokens": backendTokens,
+			"user":          userData,
 		}
 
 		response, err := json.Marshal(data)
@@ -466,9 +473,11 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 
 		// accessToken = fmt.Sprintf(`{"accessToken": "%s"}`, accessToken)
 
-		data := map[string]string{
-			"accessToken": accessToken,
-			"expiresAt":   strconv.Itoa(int(time.Now().Add(time.Second * 15).Unix())),
+		// interface{} means we can use any type
+		data := map[string]interface{}{
+			"accessToken":  accessToken,
+			"refreshToken": refreshToken,
+			"expiresAt":    int64(time.Now().Add(time.Second * 15).Unix()),
 		}
 
 		response, err := json.Marshal(data)
