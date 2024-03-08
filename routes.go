@@ -42,15 +42,15 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.DeleteWebsite(db))).Methods("DELETE")
 
 	// dashboard routes
-	router.Handle("/api/dashboard/top-stats/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetTopStats(db))).Methods("GET")
-	router.Handle("/api/dashboard/pages/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetPages(db))).Methods("GET")
-	router.Handle("/api/dashboard/referrers/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetReferrers(db))).Methods("GET")
-	router.Handle("/api/dashboard/device-types/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetDeviceTypes(db))).Methods("GET")
-	router.Handle("/api/dashboard/oses/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetOSes(db))).Methods("GET")
-	router.Handle("/api/dashboard/browsers/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetBrowsers(db))).Methods("GET")
-	router.Handle("/api/dashboard/languages/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetLanguages(db))).Methods("GET")
-	router.Handle("/api/dashboard/countries/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCountries(db))).Methods("GET")
-	router.Handle("/api/dashboard/states/{id}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetStates(db))).Methods("GET")
+	router.Handle("/api/dashboard/top-stats/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetTopStats(db))).Methods("GET")
+	router.Handle("/api/dashboard/pages/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetPages(db))).Methods("GET")
+	router.Handle("/api/dashboard/referrers/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetReferrers(db))).Methods("GET")
+	router.Handle("/api/dashboard/device-types/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetDeviceTypes(db))).Methods("GET")
+	router.Handle("/api/dashboard/oses/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetOSes(db))).Methods("GET")
+	router.Handle("/api/dashboard/browsers/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetBrowsers(db))).Methods("GET")
+	router.Handle("/api/dashboard/languages/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetLanguages(db))).Methods("GET")
+	router.Handle("/api/dashboard/countries/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCountries(db))).Methods("GET")
+	router.Handle("/api/dashboard/states/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetStates(db))).Methods("GET")
 
 	return router
 }

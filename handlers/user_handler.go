@@ -175,7 +175,8 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		// Validate the user struct
 		err = user.Validate()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			// http.Error(w, err.Error(), http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New(err.Error()))
 			return
 		}
 
@@ -189,7 +190,8 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 
 		if err == nil {
 			// If a user with the same email already exists, return a conflict error
-			http.Error(w, "Conflict", http.StatusConflict)
+			// http.Error(w, "Conflict", http.StatusConflict)
+			utils.WriteErrorResponse(w, http.StatusConflict, errors.New("Conflict"))
 			return
 		} else if err != sql.ErrNoRows {
 			// If there was an error executing the query, return an internal server error
@@ -334,7 +336,8 @@ func Login(db *sql.DB) http.HandlerFunc {
 		// Validate the user struct
 		err = user.ValidateLogin()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			// http.Error(w, err.Error(), http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New(err.Error()))
 			return
 		}
 
@@ -354,7 +357,8 @@ func Login(db *sql.DB) http.HandlerFunc {
 		// Compare the hashed password with the plain text password
 		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
 		if err != nil {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			// http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid credentials"))
 			return
 		}
 
@@ -450,7 +454,7 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 
 		// Check if the refresh token is expired
 		if time.Now().After(expirationTime) {
-			http.Error(w, "Refresh token expired", http.StatusUnauthorized)
+			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("refresh token expired"))
 			return
 		}
 
