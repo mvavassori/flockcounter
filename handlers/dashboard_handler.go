@@ -156,8 +156,8 @@ func GetTopStats2(db *sql.DB) http.HandlerFunc {
 
 func GetPages(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -165,7 +165,7 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -173,7 +173,7 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -194,7 +194,7 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT pathname, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT pathname, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -236,8 +236,8 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 
 func GetReferrers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -245,7 +245,7 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -253,7 +253,7 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -274,7 +274,7 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT referrer, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -316,8 +316,8 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 
 func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -325,7 +325,7 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -333,7 +333,7 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -356,7 +356,7 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT device_type, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT device_type, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -397,8 +397,8 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 
 func GetOSes(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -406,7 +406,7 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -414,7 +414,7 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -435,7 +435,7 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT os, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY os ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT os, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY os ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -476,8 +476,8 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 
 func GetBrowsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -485,7 +485,7 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -493,7 +493,7 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -514,7 +514,7 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT browser, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY browser ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT browser, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY browser ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -555,8 +555,8 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 
 func GetLanguages(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -564,7 +564,7 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -572,7 +572,7 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -593,7 +593,7 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT language, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY language ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT language, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY language ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -634,8 +634,8 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 
 func GetCountries(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -643,7 +643,7 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -651,7 +651,7 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -672,7 +672,7 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT country, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY country ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT country, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY country ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -713,8 +713,8 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 
 func GetStates(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -722,7 +722,7 @@ func GetStates(db *sql.DB) http.HandlerFunc {
 
 		// Check if the website exists
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking website existence:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -730,7 +730,7 @@ func GetStates(db *sql.DB) http.HandlerFunc {
 		}
 
 		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -751,7 +751,7 @@ func GetStates(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT state, COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY state ORDER BY COUNT(*) DESC LIMIT 10", id, start, end)
+		stats, err := db.Query("SELECT state, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY state ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
