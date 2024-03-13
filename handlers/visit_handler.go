@@ -19,7 +19,7 @@ import (
 func GetVisits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// Perform the SELECT query to get all visits
-		rows, err := db.Query("SELECT id, timestamp, referrer, url, pathname, device_type, os, browser, language, country, state, website_id FROM visits")
+		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, state FROM visits")
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -33,7 +33,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
 			var visit models.Visit
-			err := rows.Scan(&visit.ID, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.State, &visit.WebsiteID)
+			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.State)
 			if err != nil {
 				log.Println("Error scanning visit:", err)
 				http.Error(w, "Error scanning visit", http.StatusInternalServerError)
@@ -169,12 +169,13 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// Perform the INSERT query to add the new visit to the database
 		insertQuery := `
 			INSERT INTO visits
-				(website_id, timestamp, referrer, url, pathname, device_type, os, browser, language, country, state)
+				(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, state)
 			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 		`
 		_, err = db.Exec(insertQuery,
 			websiteId,
+			domain,
 			time.Now(),
 			visit.Referrer,
 			visit.URL,
@@ -234,13 +235,13 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 
 		updateQuery := `
 			UPDATE visits
-			SET timestamp = $1, referrer = $2, url = $3, pathname = $4, device_type = $5,
-				os = $6, browser = $7, language = $8, country = $9,
-				state = $10, website_id = $11
-			WHERE id = $12
+			SET website_id = $1, website_domain = $2, timestamp = $3, referrer = $4, url = $5, pathname = $6, device_type = $7, os = $8, browser = $9, language = $10, country = $11, state = $12
+			WHERE id = $13;
 		`
 		// Perform the UPDATE query to modify the visit with the specified ID
 		result, err := db.Exec(updateQuery,
+			websiteId,
+			domain,
 			updatedVisit.Timestamp,
 			updatedVisit.Referrer,
 			updatedVisit.URL,
@@ -251,7 +252,6 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			updatedVisit.Language,
 			updatedVisit.Country,
 			updatedVisit.State,
-			websiteId,
 			id,
 		)
 		if err != nil {
@@ -274,9 +274,10 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Create a VisitUpdateResponse object to return in the response
 		visitUpdateResponse := models.VisitUpdateResponse{
-			VisitInsert: updatedVisit,
-			ID:          int(id),
-			WebsiteID:   int(websiteId),
+			VisitInsert:   updatedVisit,
+			ID:            int(id),
+			WebsiteID:     int(websiteId),
+			WebsiteDomain: domain,
 		}
 
 		// Convert the visitResponse object to JSON
