@@ -155,7 +155,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 		domain := url.Hostname()
 
-		// fmt.Println(domain)
+		fmt.Println(domain)
 
 		// Look up the websiteId using the domain
 		var websiteId int
@@ -169,11 +169,12 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// Perform the INSERT query to add the new visit to the database
 		insertQuery := `
 			INSERT INTO visits
-				(timestamp, referrer, url, pathname, device_type, os, browser, language, country, state, website_id)
+				(website_id, timestamp, referrer, url, pathname, device_type, os, browser, language, country, state)
 			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 		`
 		_, err = db.Exec(insertQuery,
+			websiteId,
 			time.Now(),
 			visit.Referrer,
 			visit.URL,
@@ -184,7 +185,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			visit.Language,
 			visit.Country,
 			visit.State,
-			websiteId,
 		)
 		if err != nil {
 			fmt.Println("Error inserting visit:", err)
