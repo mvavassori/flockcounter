@@ -21,7 +21,7 @@ import (
 func GetUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		rows, err := db.Query(`
-			SELECT users.id, users.name, users.email, users.password, websites.id, websites.domain, websites.user_id
+			SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at , websites.id, websites.domain, websites.user_id
 			FROM users
 			LEFT JOIN websites ON users.id = websites.user_id
 		`)
@@ -36,7 +36,7 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var user models.User
 			var website models.Website
-			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &website.ID, &website.Domain, &website.UserID)
+			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &website.ID, &website.Domain, &website.UserID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -102,7 +102,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		// }
 
 		rows, err := db.Query(`
-            SELECT users.id, users.name, users.email, users.password, users.role, websites.id, websites.domain, websites.user_id
+            SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at, websites.id, websites.domain, websites.user_id
             FROM users
             LEFT JOIN websites ON users.id = websites.user_id
             WHERE users.id = $1
@@ -123,7 +123,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			found = true
 			var website models.Website
-			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &website.ID, &website.Domain, &website.UserID)
+			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &website.ID, &website.Domain, &website.UserID)
 			if err != nil {
 				log.Println("Error scanning user and website:", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -214,13 +214,15 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		// 	VALUES ($1, $2, $3)
 		// `, user.Name, user.Email, user.Password)
 
+		now := time.Now()
+
 		var userID int
 		// Insert the user into the database and return the ID of the newly inserted user
 		err = db.QueryRow(`
-            INSERT INTO users (name, email, password, role)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO users (name, email, password, role, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
-        `, user.Name, user.Email, string(hashedPassword), user.Role).Scan(&userID)
+        `, user.Name, user.Email, string(hashedPassword), user.Role, now, now).Scan(&userID)
 
 		if err != nil {
 			log.Println("Error inserting user:", err)
@@ -250,18 +252,20 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		var user models.User
-		err = json.NewDecoder(r.Body).Decode(&user)
+		var userUpdate models.UserUpdate
+		err = json.NewDecoder(r.Body).Decode(&userUpdate)
 		if err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
+		now := time.Now()
+
 		result, err := db.Exec(`
-            UPDATE users
-            SET name = $1, email = $2, password = $3
-            WHERE id = $4
-        `, user.Name, user.Email, user.Password, id)
+			UPDATE users
+			SET name = $1, email = $2, password = $3, updated_at = $4
+			WHERE id = $5
+		`, userUpdate.Name, userUpdate.Email, userUpdate.Password, now, id)
 
 		if err != nil {
 			log.Println("Error updating user:", err)
