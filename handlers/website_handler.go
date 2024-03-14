@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/mvavassori/bare-analytics/middleware"
 	"github.com/mvavassori/bare-analytics/models"
@@ -57,6 +58,54 @@ func GetWebsites(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func GetUserWebsites(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := utils.ExtractIDFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		rows, err := db.Query("SELECT id, domain, user_id, created_at, updated_at FROM websites WHERE user_id = $1", userID)
+		if err != nil {
+			log.Println("Error querying user websites:", err)
+			http.Error(w, "Error retrieving user websites", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var websites []models.Website
+
+		for rows.Next() {
+			var website models.Website
+			err := rows.Scan(&website.ID, &website.Domain, &website.UserID, &website.CreatedAt, &website.UpdatedAt)
+			if err != nil {
+				log.Println("Error scanning user website:", err)
+				http.Error(w, "Error scanning user website", http.StatusInternalServerError)
+				return
+			}
+			websites = append(websites, website)
+
+			if err := rows.Err(); err != nil {
+				log.Println("Error iterating user websites:", err)
+				http.Error(w, "Error iterating user websites", http.StatusInternalServerError)
+				return
+			}
+
+		}
+		jsonResponse, err := json.Marshal(websites)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+	}
+}
+
 func GetWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// extract the value id from the url
@@ -72,7 +121,7 @@ func GetWebsite(db *sql.DB) http.HandlerFunc {
 		// Creating a new instance of the Website struct from the models package and getting a pointer to it.
 		website := &models.Website{}
 
-		err = row.Scan(&website.ID, &website.Domain, &website.UserID)
+		err = row.Scan(&website.ID, &website.Domain, &website.UserID, &website.CreatedAt, &website.UpdatedAt)
 		if err == sql.ErrNoRows {
 			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
 			return
@@ -140,11 +189,15 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Set the CreatedAt and UpdatedAt fields in the WebsiteInsert struct
+		website.CreatedAt = time.Now()
+		website.UpdatedAt = time.Now()
+
 		// Insert the website into the database
 		_, err = db.Exec(`
-			INSERT INTO websites (domain, user_id)
+			INSERT INTO websites (domain, user_id, created_at, updated_at)
 			VALUES ($1, $2)
-		`, website.Domain, website.UserID)
+		`, website.Domain, website.UserID, website.CreatedAt, website.UpdatedAt)
 
 		if err != nil {
 			log.Println("Error inserting website:", err)
@@ -173,10 +226,13 @@ func UpdateWebsite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// update the update_at field
+		website.UpdatedAt = time.Now()
+
 		// Update the website in the database
-		updateQuery := "UPDATE websites SET domain = $1, user_id = $2 WHERE id = $3"
+		updateQuery := "UPDATE websites SET domain = $1, user_id = $2, updated_at = $3 WHERE id = $4"
 		// _, err = db.Exec(updateQuery, website.Domain, website.UserID, id)
-		result, err := db.Exec(updateQuery, website.Domain, website.UserID, id)
+		result, err := db.Exec(updateQuery, website.Domain, website.UserID, website.UpdatedAt, id)
 		if err != nil {
 			log.Println("Error updating website:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
