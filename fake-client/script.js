@@ -1,51 +1,116 @@
+let pageLoadTime;
+let unloadEventAttached = false;
+
 // Function to initiate a tracking request
-const trackVisit = () => {
-    // Prepare payload data
-    const now = new Date();
-    
-    // Use toISOString for ISO 8601 format with UTC timezone
-    const formattedStamp = now.toISOString();
-    
-    const payloadData = {
-        timestamp: formattedStamp,
-        referrer: document.referrer || null,
-        url: window.location.href,
-        pathname: window.location.pathname,
-        // hash: window.location.hash,
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        // screenWidth: window.screen.width,
-        // screenHeight: window.screen.height,
-        // location: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        country: getCountry(),
-        state: getState(),
-    };
-  
-    console.log(payloadData);
-  
-    // Construct full API endpoint URL
-    const apiUrl = "http://localhost:8080/api/visit";
-  
-    try {
-      fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payloadData),
-      })
-    
-    } catch (error) {
+const trackVisit = (isUniqueVisit, timeSpentOnPage) => {
+  // Prepare payload data
+  const now = new Date();
+
+  // Use toISOString for ISO 8601 format with UTC timezone
+  const formattedStamp = now.toISOString();
+
+  const payloadData = {
+    timestamp: formattedStamp,
+    referrer: document.referrer || null,
+    url: window.location.href,
+    pathname: window.location.pathname,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    country: getCountry(),
+    state: getState(),
+    isUnique: isUniqueVisit,
+    timeSpentOnPage: timeSpentOnPage
+  };
+
+  console.log(payloadData);
+
+  // Construct full API endpoint URL
+  const apiUrl = "http://localhost:8080/api/visit";
+
+  try {
+    fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payloadData),
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+    }).catch(error => {
       console.error("Error sending visit data:", error);
+    });
+  } catch (error) {
+    console.error("Error sending visit data:", error);
+  }
+};
+
+// Function to track time spent on the page
+const trackTimeSpentOnPage = () => {
+  pageLoadTime = performance.now();
+
+  const handlePageUnload = () => {
+    const timeSpentOnPage = performance.now() - pageLoadTime;
+    trackVisit(false, timeSpentOnPage); // Send the visit data to the backend when the page is unloaded
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      // User switched to another tab or minimized the window
+      if (!unloadEventAttached) {
+        window.addEventListener("beforeunload", handlePageUnload);
+        unloadEventAttached = true;
+      }
+    } else if (document.visibilityState === "visible") {
+      // User switched back to the tab with the website
+      const timeSpentOnPage = performance.now() - pageLoadTime;
+
+      // Check if the user was away for more than a certain inactivity period (e.g., 5 minutes)
+      const inactivityPeriod = 5 * 60 * 1000; // 5 minutes in milliseconds
+      // const inactivityPeriod = 10 * 1000; // 10 seconds in milliseconds
+      if (timeSpentOnPage > inactivityPeriod) {
+        const isUniqueVisit = isNewSession();
+        trackVisit(isUniqueVisit, timeSpentOnPage); // Send the visit data to the backend when the user returns after inactivity
+      }
+
+      // Remove the pagehide event listener, as the user is back on the website
+      window.removeEventListener("beforeunload", handlePageUnload);
+      unloadEventAttached = false;
     }
   };
-  
-  // Callback triggered upon DOM ready state
-  document.addEventListener("DOMContentLoaded", () => {
-    // Trigger initial visit tracking
-    trackVisit();
-    // sendTimestamp();
-  });
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+};
+
+// Function to check if the current session is a new unique visit
+
+const isNewSession = () => {
+  // You can define your own session duration here (e.g., 30 minutes)
+  const sessionDuration = 30 * 60 * 1000; // 30 minutes in milliseconds
+  // const sessionDuration = 15 * 1000; // 15 seconds in millisecondscc
+
+  // Check if the last visit was within the session duration
+  const lastVisitTime = sessionStorage.getItem("lastVisitTime");
+
+  // Check if the user comes from an external website
+  const isExternalReferrer = document.referrer && !document.referrer.includes(window.location.host);
+
+  if (!lastVisitTime || Date.now() - parseInt(lastVisitTime) > sessionDuration || isExternalReferrer) {
+    // If there's no last visit time or the last visit was outside the session duration,
+    // consider this a new unique visit
+    sessionStorage.setItem("lastVisitTime", Date.now());
+    return true;
+  } else {
+    // Otherwise, consider this a non-unique visit
+    return false;
+  }
+};
+
+// Call the function to track time spent on the page
+document.addEventListener("DOMContentLoaded", () => {
+  trackTimeSpentOnPage();
+});
 
 
   function getCountry() {

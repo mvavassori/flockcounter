@@ -50,27 +50,41 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Query the database for statistics
-		stats, err := db.Query("SELECT COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3", domain, start, end)
+		// Query the database for statistics grouped by date
+		rows, err := db.Query(`
+			SELECT DATE_TRUNC('day', timestamp) AS date, COUNT(*) AS count
+			FROM visits
+			WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+			GROUP BY date
+			ORDER BY date ASC`, domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer rows.Close()
 
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var count int
-		if stats.Next() {
-			err = stats.Scan(&count)
+		// Create a slice to store the data points
+		var dataPoints []map[string]interface{}
+
+		// Scan the results into the dataPoints slice
+		for rows.Next() {
+			var date time.Time
+			var count int
+			err = rows.Scan(&date, &count)
 			if err != nil {
 				log.Println("Error scanning statistics:", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			dataPoints = append(dataPoints, map[string]interface{}{
+				"date":  date.Format("2006-01-02"),
+				"count": count,
+			})
 		}
 
-		jsonStats, err := json.Marshal(count)
+		// Convert the dataPoints slice to JSON
+		jsonStats, err := json.Marshal(dataPoints)
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"time"
-
 	_ "github.com/lib/pq"
 	"github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/models"
@@ -135,16 +133,18 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Create a VisitInsert2 struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
-			Timestamp:  visitReceiver.Timestamp,
-			Referrer:   visitReceiver.Referrer,
-			URL:        visitReceiver.URL,
-			Pathname:   visitReceiver.Pathname,
-			DeviceType: utils.GetDeviceType(&ua),
-			OS:         ua.OS,
-			Browser:    ua.Name,
-			Language:   visitReceiver.Language,
-			Country:    visitReceiver.Country,
-			State:      visitReceiver.State,
+			Timestamp:       visitReceiver.Timestamp,
+			Referrer:        visitReceiver.Referrer,
+			URL:             visitReceiver.URL,
+			Pathname:        visitReceiver.Pathname,
+			DeviceType:      utils.GetDeviceType(&ua),
+			OS:              ua.OS,
+			Browser:         ua.Name,
+			Language:        visitReceiver.Language,
+			Country:         visitReceiver.Country,
+			State:           visitReceiver.State,
+			IsUnique:        visitReceiver.IsUnique,
+			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
 		}
 
 		url, err := url.Parse(visit.URL)
@@ -157,40 +157,44 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		fmt.Println(domain)
 
-		// Look up the websiteId using the domain
-		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		if err != nil {
-			log.Println("Error looking up websiteId", err)
-			http.Error(w, "Website not found", http.StatusNotFound)
-			return
-		}
+		fmt.Println("Frontend sent: ", visitReceiver)
 
-		// Perform the INSERT query to add the new visit to the database
-		insertQuery := `
-			INSERT INTO visits
-				(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, state)
-			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
-		`
-		_, err = db.Exec(insertQuery,
-			websiteId,
-			domain,
-			time.Now(),
-			visit.Referrer,
-			visit.URL,
-			visit.Pathname,
-			visit.DeviceType,
-			visit.OS,
-			visit.Browser,
-			visit.Language,
-			visit.Country,
-			visit.State,
-		)
-		if err != nil {
-			fmt.Println("Error inserting visit:", err)
-			return
-		}
+		// // Look up the websiteId using the domain
+		// var websiteId int
+		// err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		// if err != nil {
+		// 	log.Println("Error looking up websiteId", err)
+		// 	http.Error(w, "Website not found", http.StatusNotFound)
+		// 	return
+		// }
+
+		// // Perform the INSERT query to add the new visit to the database
+		// insertQuery := `
+		// 	INSERT INTO visits
+		// 		(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, state, is_unique,time_spent_on_page)
+		// 	VALUES
+		// 		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+		// `
+		// _, err = db.Exec(insertQuery,
+		// 	websiteId,
+		// 	domain,
+		// 	time.Now(),
+		// 	visit.Referrer,
+		// 	visit.URL,
+		// 	visit.Pathname,
+		// 	visit.DeviceType,
+		// 	visit.OS,
+		// 	visit.Browser,
+		// 	visit.Language,
+		// 	visit.Country,
+		// 	visit.State,
+		// 	visit.IsUnique,
+		// 	visit.TimeSpentOnPage,
+		// )
+		// if err != nil {
+		// 	fmt.Println("Error inserting visit:", err)
+		// 	return
+		// }
 
 		w.WriteHeader(http.StatusCreated)
 	}
