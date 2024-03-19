@@ -40,4 +40,25 @@ const trackVisit = (isUniqueVisit, timeSpentOnPage) => {
     } catch (error) {
       console.error("Error sending visit data:", error);
     }
+};
+
+// when the user arrives to the page, start a timer to count the time spent on the page
+const trackTimeSpentOnPage = () => {
+    pageLoadTime = performance.now();
+}
+
+window.addEventListener("unload", (event) => { 
+  const payloadData = {
+    timestamp: formattedStamp,
+    referrer: document.referrer || null,
+    url: window.location.href,
+    pathname: window.location.pathname,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    // country: getCountry(),
+    // state: getState(),
+    // isUnique: isUniqueVisit,
+    // timeSpentOnPage: timeSpentOnPage
   };
+  navigator.sendBeacon('http://localhost:8080/api/visit', JSON.stringify(payloadData) );
+});
