@@ -47,7 +47,7 @@ const trackTimeSpentOnPage = () => {
     pageLoadTime = performance.now();
 }
 
-window.addEventListener("unload", (event) => { 
+window.addEventListener("visibilitychange", (event) => { 
   const payloadData = {
     timestamp: formattedStamp,
     referrer: document.referrer || null,

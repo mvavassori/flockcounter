@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 
 	_ "github.com/lib/pq"
-	"github.com/mileusna/useragent"
+	// "github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 )
@@ -118,46 +120,70 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a VisitReceiver struct to hold the request data
-		var visitReceiver models.VisitReceiver
 
-		// Decode the JSON data from the request body into the VisitReceiver struct
-		err := json.NewDecoder(r.Body).Decode(&visitReceiver) // The Decode function modifies the contents of the passed object based on the input JSON data. By passing a pointer, any changes made by Decode will directly update the original struct rather than creating a copy and updating that.
+		textData, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Println("Error decoding input data", err)
-			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		ua := useragent.Parse(visitReceiver.UserAgent)
+		// Print the text data
+		fmt.Println("Received text data:")
+		fmt.Println(string(textData))
 
-		// Create a VisitInsert2 struct to hold the data to be inserted into the database
-		visit := models.VisitInsert{
-			Timestamp:       visitReceiver.Timestamp,
-			Referrer:        visitReceiver.Referrer,
-			URL:             visitReceiver.URL,
-			Pathname:        visitReceiver.Pathname,
-			DeviceType:      utils.GetDeviceType(&ua),
-			OS:              ua.OS,
-			Browser:         ua.Name,
-			Language:        visitReceiver.Language,
-			Country:         visitReceiver.Country,
-			State:           visitReceiver.State,
-			IsUnique:        visitReceiver.IsUnique,
-			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
-		}
+		// var jsonData map[string]interface{}
+		// err := json.NewDecoder(r.Body).Decode(&jsonData)
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusBadRequest)
+		// 	return
+		// }
 
-		url, err := url.Parse(visit.URL)
-		if err != nil {
-			log.Println("Error parsing URL", err)
-			http.Error(w, "Invalid URL format", http.StatusBadRequest)
-			return
-		}
-		domain := url.Hostname()
+		// // Print the JSON data
+		// fmt.Println("Received JSON data:")
+		// for key, value := range jsonData {
+		// 	fmt.Printf("%s: %v\n", key, value)
+		// }
 
-		fmt.Println(domain)
+		// // Create a VisitReceiver struct to hold the request data
+		// var visitReceiver models.VisitReceiver
 
-		fmt.Println("Frontend sent: ", visitReceiver)
+		// // Decode the JSON data from the request body into the VisitReceiver struct
+		// err := json.NewDecoder(r.Body).Decode(&visitReceiver) // The Decode function modifies the contents of the passed object based on the input JSON data. By passing a pointer, any changes made by Decode will directly update the original struct rather than creating a copy and updating that.
+		// if err != nil {
+		// 	log.Println("Error decoding input data", err)
+		// 	http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		// 	return
+		// }
+
+		// ua := useragent.Parse(visitReceiver.UserAgent)
+
+		// // Create a VisitInsert2 struct to hold the data to be inserted into the database
+		// visit := models.VisitInsert{
+		// 	Timestamp:       visitReceiver.Timestamp,
+		// 	Referrer:        visitReceiver.Referrer,
+		// 	URL:             visitReceiver.URL,
+		// 	Pathname:        visitReceiver.Pathname,
+		// 	DeviceType:      utils.GetDeviceType(&ua),
+		// 	OS:              ua.OS,
+		// 	Browser:         ua.Name,
+		// 	Language:        visitReceiver.Language,
+		// 	Country:         visitReceiver.Country,
+		// 	State:           visitReceiver.State,
+		// 	IsUnique:        visitReceiver.IsUnique,
+		// 	TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
+		// }
+
+		// url, err := url.Parse(visit.URL)
+		// if err != nil {
+		// 	log.Println("Error parsing URL", err)
+		// 	http.Error(w, "Invalid URL format", http.StatusBadRequest)
+		// 	return
+		// }
+		// domain := url.Hostname()
+
+		// fmt.Println(domain)
+
+		// fmt.Println("Frontend sent: ", visitReceiver)
 
 		// // Look up the websiteId using the domain
 		// var websiteId int
@@ -196,7 +222,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// 	return
 		// }
 
-		w.WriteHeader(http.StatusCreated)
+		// w.WriteHeader(http.StatusCreated)
 	}
 }
 
