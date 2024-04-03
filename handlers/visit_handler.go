@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 
 	"io"
 	"log"
@@ -125,6 +126,13 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
+		}
+
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			log.Println("Error getting ip from remote addr", err)
+		} else {
+			fmt.Println("Received request from IP:", ip)
 		}
 
 		// Print the text data
