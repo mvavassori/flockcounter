@@ -10,7 +10,11 @@ let currentUrl = window.location.href;
 
 let currentReferrer = document.referrer || null;
 
-let isFirstVisit = true;
+console.log("window.location.host", window.location.host);
+
+// let isFirstVisit = true;
+let isFirstVisit =
+  !currentReferrer || !currentReferrer.includes(window.location.host);
 
 let previousPathname = window.location.pathname;
 
@@ -86,7 +90,12 @@ function handleRouteChange() {
     currentReferrer = currentUrl;
 
     // Set isFirstVisit to false after the first visit
-    isFirstVisit = false;
+    // isFirstVisit = false;
+
+    // Set isFirstVisit to false after the first visit, but only if the referrer is from the same website
+    if (currentReferrer.includes(window.location.host)) {
+      isFirstVisit = false;
+    }
 
     console.log("URL changed from", currentUrl, "to", newUrl);
     const elapsedTime = performance.now() - startTime;
@@ -130,7 +139,7 @@ function overridePushStateFunction(originalPushState) {
 
 function overrideReplaceStateFunction(originalReplaceState) {
   return function overridenReplaceState(...args) {
-    previousPathname = window.location.pathname; // Store the previous pathname before calling handleRouteChange
+    previousPathname = window.location.pathname;
     const result = originalReplaceState.apply(this, args);
     handleRouteChange();
     return result;
