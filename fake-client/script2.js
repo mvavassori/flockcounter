@@ -12,13 +12,29 @@ let currentReferrer = document.referrer || null;
 
 console.log("window.location.host", window.location.host);
 
-// let isFirstVisit = true;
-let isFirstVisit =
-  !currentReferrer || !currentReferrer.includes(window.location.host);
-
 let previousPathname = window.location.pathname;
 
 console.log("Page loaded, startTime:", startTime);
+
+function isUniqueVisitor() {
+  const uniqueIdKey = "unique_id";
+
+  // Check if the unique_id exists in localStorage
+  if (localStorage.getItem(uniqueIdKey)) {
+    // The unique_id exists, so it's a returning visitor.
+    return false;
+  } else {
+    // The unique_id does not exist, so it's a new visitor.
+
+    // Generate a new unique identifier and store it in localStorage
+    const uniqueId =
+      Date.now().toString(36) + Math.random().toString(36).slice(2);
+    console.log("uniqueId generated:", uniqueId);
+    localStorage.setItem(uniqueIdKey, uniqueId);
+
+    return true;
+  }
+}
 
 // Function to handle sending the visit data
 function sendVisit(elapsedTime) {
@@ -31,7 +47,7 @@ function sendVisit(elapsedTime) {
     userAgent: navigator.userAgent,
     language: navigator.language,
     timeSpentOnPage: Math.round(elapsedTime),
-    isUniqueVisit: isFirstVisit,
+    isUniqueVisit: isUniqueVisitor(),
   };
   let data = JSON.stringify(payloadData);
   console.log("Sending visit data:", payloadData);
@@ -88,14 +104,6 @@ function handleRouteChange() {
   if (newUrl !== currentUrl) {
     // Store the current URL as the previous referrer
     currentReferrer = currentUrl;
-
-    // Set isFirstVisit to false after the first visit
-    // isFirstVisit = false;
-
-    // Set isFirstVisit to false after the first visit, but only if the referrer is from the same website
-    if (currentReferrer.includes(window.location.host)) {
-      isFirstVisit = false;
-    }
 
     console.log("URL changed from", currentUrl, "to", newUrl);
     const elapsedTime = performance.now() - startTime;
