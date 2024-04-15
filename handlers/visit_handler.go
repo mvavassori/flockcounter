@@ -365,3 +365,17 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+func VisitorCounter() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		textData, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Print the text data
+		fmt.Println("")
+		fmt.Println(string(textData))
+	}
+}
