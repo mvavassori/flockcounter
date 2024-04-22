@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net"
-
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
+
+	// "sync"
+	// "time"
 
 	_ "github.com/lib/pq"
 	// "github.com/mileusna/useragent"
@@ -366,16 +368,17 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func VisitorCounter() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		textData, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+// func LiveVisitorCounter() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		textData, err := io.ReadAll(r.Body)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
 
-		// Print the text data
-		fmt.Println("")
-		fmt.Println(string(textData))
-	}
-}
+// 		// Print the text data
+// 		fmt.Println("")
+// 		fmt.Println(string(textData))
+
+// 	}
+// }

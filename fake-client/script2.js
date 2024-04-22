@@ -36,42 +36,6 @@ function isUniqueVisitor() {
   }
 }
 
-// send visit data every 30 seconds
-const HEARTBEAT_INTERVAL = 4000; // 30 seconds
-
-let heartbeatIntervalId = null;
-
-function sendEvent(eventType) {
-  fetch(`${url}/counter`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      eventType,
-      currentUrl,
-    }),
-  }).catch((err) => console.error("Error during visit tracking:", err));
-}
-
-function startHeartbeat() {
-  if (!heartbeatIntervalId) {
-    heartbeatIntervalId = setInterval(() => {
-      sendEvent("heartbeat");
-    }, HEARTBEAT_INTERVAL);
-  }
-}
-
-function stopHeartbeat() {
-  clearInterval(heartbeatIntervalId);
-  heartbeatIntervalId = null;
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-  // Send the visit event
-  sendEvent("visit");
-  // Start the heartbeat
-  startHeartbeat();
-});
-
 // Function to handle sending the visit data
 function sendVisit(elapsedTime) {
   const payloadData = {
@@ -96,22 +60,12 @@ window.addEventListener("visibilitychange", (event) => {
     // Page became visible, restart the timer
     startTime = performance.now();
     console.log("Page became visible, startTime updated:", startTime);
-
-    // If the heartbeat is not running, start it
-    if (!heartbeatIntervalId) {
-      startHeartbeat();
-    }
   } else {
     // Page became hidden
     const elapsedTime = performance.now() - startTime;
     console.log("Page became hidden, elapsed time:", elapsedTime);
     totalElapsedTime += elapsedTime;
     console.log("Total elapsed time:", totalElapsedTime);
-
-    // Send the leave event
-    sendEvent("leave");
-    // Stop the heartbeat
-    stopHeartbeat();
 
     if (totalElapsedTime < 5000) {
       console.log("Visit time less than 5 seconds, not sending data.");
