@@ -67,8 +67,8 @@ window.addEventListener("visibilitychange", (event) => {
     totalElapsedTime += elapsedTime;
     console.log("Total elapsed time:", totalElapsedTime);
 
-    if (totalElapsedTime < 5000) {
-      console.log("Visit time less than 5 seconds, not sending data.");
+    if (totalElapsedTime < 2000) {
+      console.log("Visit time less than 2 seconds, not sending data.");
       // Reset the timer without sending the visit data
       startTime = 0;
       totalElapsedTime = 0;

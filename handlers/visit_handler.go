@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	// "sync"
 	// "time"
@@ -17,6 +19,8 @@ import (
 	// "github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
+
+	"github.com/oschwald/geoip2-golang"
 )
 
 func GetVisits(db *sql.DB) http.HandlerFunc {
@@ -130,16 +134,86 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			log.Println("Error getting ip from remote addr", err)
-		} else {
-			fmt.Println("Received request from IP:", ip)
-		}
-
 		// Print the text data
 		fmt.Println("Received text data:")
 		fmt.Println(string(textData))
+
+		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		// if err != nil {
+		// 	log.Println("Error getting ip from remote addr", err)
+		// } else {
+		// 	fmt.Println("Received request from IP:", ip)
+		// }
+
+		// Get home directory
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatal("Error getting home directory:", err)
+		}
+
+		fmt.Println("Home directory:", homeDir)
+		// Construct full path to GeoLite2-City.mmdb file
+		dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
+
+		fmt.Println("Database path:", dbPath)
+
+		geoip2DB, err := geoip2.Open(dbPath)
+		if err != nil {
+			log.Fatal("Error initilizing geoip2 database", err)
+		}
+		defer geoip2DB.Close()
+
+		// parsedIP := net.ParseIP(ip)
+		parsedIP := net.ParseIP("45.14.71.8")
+
+		if parsedIP == nil {
+			log.Println("Error parsing IP", err)
+			http.Error(w, "Invalid IP format", http.StatusBadRequest)
+			return
+		}
+
+		fmt.Println("Parsed IP:", parsedIP)
+
+		record, err := geoip2DB.City(parsedIP)
+		if err != nil {
+			log.Println("Error retrieving location", err)
+		}
+
+		// Default values if country, region, or city are not found
+		country := "Anonymous"
+		region := "Anonymous"
+		city := "Anonymous"
+
+		// Retrieve country name if available
+		if countryName, ok := record.Country.Names["en"]; ok {
+			country = countryName
+		}
+
+		// Retrieve region name if available
+		if len(record.Subdivisions) > 0 {
+			if regionName, ok := record.Subdivisions[0].Names["en"]; ok {
+				region = regionName
+			}
+		} else {
+			log.Println("No subdivision information available")
+		}
+
+		// Retrieve city name if available
+		if cityName, ok := record.City.Names["en"]; ok {
+			city = cityName
+		}
+
+		// Print location information
+		fmt.Println("Country:", country)
+		fmt.Println("Region:", region)
+		fmt.Println("City:", city)
+
+		// // Region
+		// fmt.Println(record.Subdivisions[0].Names["en"])
+		// // City
+		// fmt.Println(record.City.Names["en"])
+		// // ISO
+		// fmt.Println(record.Subdivisions[0].IsoCode)
 
 		// var jsonData map[string]interface{}
 		// err := json.NewDecoder(r.Body).Decode(&jsonData)
