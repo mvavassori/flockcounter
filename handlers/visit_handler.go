@@ -4,19 +4,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
+
+	// "io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	// "sync"
-	// "time"
 
 	_ "github.com/lib/pq"
-	// "github.com/mileusna/useragent"
+	"github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 
@@ -40,7 +41,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
 			var visit models.Visit
-			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.State)
+			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.Region, &visit.City, &visit.IsUnique, &visit.TimeSpentOnPage)
 			if err != nil {
 				log.Println("Error scanning visit:", err)
 				http.Error(w, "Error scanning visit", http.StatusInternalServerError)
@@ -88,6 +89,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 		// It reads the values from the database row and populates the fields in the visit variable.
 		err = row.Scan(
 			&visit.ID,
+			&visit.WebsiteID,
 			&visit.Timestamp,
 			&visit.Referrer,
 			&visit.URL,
@@ -97,8 +99,10 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 			&visit.Browser,
 			&visit.Language,
 			&visit.Country,
-			&visit.State,
-			&visit.WebsiteID,
+			&visit.Region,
+			&visit.City,
+			&visit.IsUnique,
+			&visit.TimeSpentOnPage,
 		)
 
 		if err == sql.ErrNoRows {
@@ -128,16 +132,17 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		textData, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		// textData, err := io.ReadAll(r.Body)
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusBadRequest)
+		// 	return
+		// }
 
-		// Print the text data
-		fmt.Println("Received text data:")
-		fmt.Println(string(textData))
+		// // Print the text data
+		// fmt.Println("Received text data:")
+		// fmt.Println(string(textData))
 
+		// // Get IP address
 		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		// if err != nil {
 		// 	log.Println("Error getting ip from remote addr", err)
@@ -164,6 +169,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		defer geoip2DB.Close()
 
 		// parsedIP := net.ParseIP(ip)
+		// for testing
 		parsedIP := net.ParseIP("45.14.71.8")
 
 		if parsedIP == nil {
@@ -180,9 +186,9 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Default values if country, region, or city are not found
-		country := "Anonymous"
-		region := "Anonymous"
-		city := "Anonymous"
+		country := "Unknown"
+		region := "Unknown"
+		city := "Unknown"
 
 		// Retrieve country name if available
 		if countryName, ok := record.Country.Names["en"]; ok {
@@ -208,105 +214,87 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		fmt.Println("Region:", region)
 		fmt.Println("City:", city)
 
-		// // Region
-		// fmt.Println(record.Subdivisions[0].Names["en"])
-		// // City
-		// fmt.Println(record.City.Names["en"])
-		// // ISO
-		// fmt.Println(record.Subdivisions[0].IsoCode)
+		// Create a VisitReceiver struct to hold the request data
+		var visitReceiver models.VisitReceiver
 
-		// var jsonData map[string]interface{}
-		// err := json.NewDecoder(r.Body).Decode(&jsonData)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusBadRequest)
-		// 	return
-		// }
+		// Decode the JSON data from the request body into the VisitReceiver struct
+		err = json.NewDecoder(r.Body).Decode(&visitReceiver) // The Decode function modifies the contents of the passed object based on the input JSON data. By passing a pointer, any changes made by Decode will directly update the original struct rather than creating a copy and updating that.
+		if err != nil {
+			log.Println("Error decoding input data", err)
+			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+			return
+		}
 
-		// // Print the JSON data
-		// fmt.Println("Received JSON data:")
-		// for key, value := range jsonData {
-		// 	fmt.Printf("%s: %v\n", key, value)
-		// }
+		ua := useragent.Parse(visitReceiver.UserAgent)
 
-		// // Create a VisitReceiver struct to hold the request data
-		// var visitReceiver models.VisitReceiver
+		// Create a VisitInsert struct to hold the data to be inserted into the database
+		visit := models.VisitInsert{
+			Timestamp:       visitReceiver.Timestamp,
+			Referrer:        visitReceiver.Referrer,
+			URL:             visitReceiver.URL,
+			Pathname:        visitReceiver.Pathname,
+			DeviceType:      utils.GetDeviceType(&ua),
+			OS:              ua.OS,
+			Browser:         ua.Name,
+			Language:        visitReceiver.Language,
+			Country:         country,
+			Region:          region,
+			City:            city,
+			IsUnique:        visitReceiver.IsUnique,
+			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
+		}
 
-		// // Decode the JSON data from the request body into the VisitReceiver struct
-		// err := json.NewDecoder(r.Body).Decode(&visitReceiver) // The Decode function modifies the contents of the passed object based on the input JSON data. By passing a pointer, any changes made by Decode will directly update the original struct rather than creating a copy and updating that.
-		// if err != nil {
-		// 	log.Println("Error decoding input data", err)
-		// 	http.Error(w, "Invalid JSON format", http.StatusBadRequest)
-		// 	return
-		// }
+		url, err := url.Parse(visit.URL)
+		if err != nil {
+			log.Println("Error parsing URL", err)
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+		domain := url.Hostname()
 
-		// ua := useragent.Parse(visitReceiver.UserAgent)
+		fmt.Println(domain)
 
-		// // Create a VisitInsert2 struct to hold the data to be inserted into the database
-		// visit := models.VisitInsert{
-		// 	Timestamp:       visitReceiver.Timestamp,
-		// 	Referrer:        visitReceiver.Referrer,
-		// 	URL:             visitReceiver.URL,
-		// 	Pathname:        visitReceiver.Pathname,
-		// 	DeviceType:      utils.GetDeviceType(&ua),
-		// 	OS:              ua.OS,
-		// 	Browser:         ua.Name,
-		// 	Language:        visitReceiver.Language,
-		// 	Country:         visitReceiver.Country,
-		// 	State:           visitReceiver.State,
-		// 	IsUnique:        visitReceiver.IsUnique,
-		// 	TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
-		// }
+		fmt.Println("Frontend sent: ", visitReceiver)
 
-		// url, err := url.Parse(visit.URL)
-		// if err != nil {
-		// 	log.Println("Error parsing URL", err)
-		// 	http.Error(w, "Invalid URL format", http.StatusBadRequest)
-		// 	return
-		// }
-		// domain := url.Hostname()
+		// Look up the websiteId using the domain
+		var websiteId int
+		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		if err != nil {
+			log.Println("Error looking up websiteId", err)
+			http.Error(w, "Website not found", http.StatusNotFound)
+			return
+		}
 
-		// fmt.Println(domain)
+		// Perform the INSERT query to add the new visit to the database
+		insertQuery := `
+			INSERT INTO visits
+				(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique, time_spent_on_page)
+			VALUES
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+		`
+		_, err = db.Exec(insertQuery,
+			websiteId,
+			domain,
+			time.Now(),
+			visit.Referrer,
+			visit.URL,
+			visit.Pathname,
+			visit.DeviceType,
+			visit.OS,
+			visit.Browser,
+			visit.Language,
+			visit.Country,
+			visit.Region,
+			visit.City,
+			visit.IsUnique,
+			visit.TimeSpentOnPage,
+		)
+		if err != nil {
+			fmt.Println("Error inserting visit:", err)
+			return
+		}
 
-		// fmt.Println("Frontend sent: ", visitReceiver)
-
-		// // Look up the websiteId using the domain
-		// var websiteId int
-		// err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		// if err != nil {
-		// 	log.Println("Error looking up websiteId", err)
-		// 	http.Error(w, "Website not found", http.StatusNotFound)
-		// 	return
-		// }
-
-		// // Perform the INSERT query to add the new visit to the database
-		// insertQuery := `
-		// 	INSERT INTO visits
-		// 		(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, state, is_unique,time_spent_on_page)
-		// 	VALUES
-		// 		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
-		// `
-		// _, err = db.Exec(insertQuery,
-		// 	websiteId,
-		// 	domain,
-		// 	time.Now(),
-		// 	visit.Referrer,
-		// 	visit.URL,
-		// 	visit.Pathname,
-		// 	visit.DeviceType,
-		// 	visit.OS,
-		// 	visit.Browser,
-		// 	visit.Language,
-		// 	visit.Country,
-		// 	visit.State,
-		// 	visit.IsUnique,
-		// 	visit.TimeSpentOnPage,
-		// )
-		// if err != nil {
-		// 	fmt.Println("Error inserting visit:", err)
-		// 	return
-		// }
-
-		// w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 
@@ -349,8 +337,8 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 
 		updateQuery := `
 			UPDATE visits
-			SET website_id = $1, website_domain = $2, timestamp = $3, referrer = $4, url = $5, pathname = $6, device_type = $7, os = $8, browser = $9, language = $10, country = $11, state = $12
-			WHERE id = $13;
+			SET website_id = $1, website_domain = $2, timestamp = $3, referrer = $4, url = $5, pathname = $6, device_type = $7, os = $8, browser = $9, language = $10, country = $11, region = $12, city = $13, is_unique = $14, time_spent_on_page = $15
+			WHERE id = $16;
 		`
 		// Perform the UPDATE query to modify the visit with the specified ID
 		result, err := db.Exec(updateQuery,
@@ -365,7 +353,10 @@ func UpdateVisit(db *sql.DB) http.HandlerFunc {
 			updatedVisit.Browser,
 			updatedVisit.Language,
 			updatedVisit.Country,
-			updatedVisit.State,
+			updatedVisit.Region,
+			updatedVisit.City,
+			updatedVisit.IsUnique,
+			updatedVisit.TimeSpentOnPage,
 			id,
 		)
 		if err != nil {
@@ -441,18 +432,3 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
-
-// func LiveVisitorCounter() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		textData, err := io.ReadAll(r.Body)
-// 		if err != nil {
-// 			http.Error(w, err.Error(), http.StatusBadRequest)
-// 			return
-// 		}
-
-// 		// Print the text data
-// 		fmt.Println("")
-// 		fmt.Println(string(textData))
-
-// 	}
-// }

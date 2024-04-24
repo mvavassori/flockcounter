@@ -46,8 +46,8 @@ function sendVisit(elapsedTime) {
     pathname: previousPathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    timeSpentOnPage: Math.round(elapsedTime),
     isUniqueVisit: isUniqueVisitor(),
+    timeSpentOnPage: Math.round(elapsedTime),
   };
   let data = JSON.stringify(payloadData);
   console.log("Sending visit data:", payloadData);

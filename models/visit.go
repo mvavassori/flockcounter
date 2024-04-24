@@ -15,7 +15,8 @@ type Visit struct {
 	Browser         string    `json:"browser"`
 	Language        string    `json:"language"`
 	Country         string    `json:"country"`
-	State           string    `json:"state"`
+	Region          string    `json:"region"`
+	City            string    `json:"city"`
 	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
 }
@@ -27,8 +28,6 @@ type VisitReceiver struct {
 	Pathname        string    `json:"pathname"`
 	UserAgent       string    `json:"userAgent"`
 	Language        string    `json:"language"`
-	Country         string    `json:"country"`
-	State           string    `json:"state"`
 	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
 }
@@ -45,7 +44,8 @@ type VisitInsert struct {
 	Browser         string    `json:"browser"`
 	Language        string    `json:"language"`
 	Country         string    `json:"country"`
-	State           string    `json:"state"`
+	Region          string    `json:"region"`
+	City            string    `json:"city"`
 	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
 }
