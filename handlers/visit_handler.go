@@ -27,7 +27,7 @@ import (
 func GetVisits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// Perform the SELECT query to get all visits
-		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, state FROM visits")
+		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, time_spent_on_page, is_unique FROM visits")
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -41,7 +41,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
 			var visit models.Visit
-			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.Region, &visit.City, &visit.IsUnique, &visit.TimeSpentOnPage)
+			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.Region, &visit.City, &visit.TimeSpentOnPage, &visit.IsUnique)
 			if err != nil {
 				log.Println("Error scanning visit:", err)
 				http.Error(w, "Error scanning visit", http.StatusInternalServerError)
@@ -90,6 +90,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 		err = row.Scan(
 			&visit.ID,
 			&visit.WebsiteID,
+			&visit.WebsiteDomain,
 			&visit.Timestamp,
 			&visit.Referrer,
 			&visit.URL,
@@ -101,8 +102,8 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 			&visit.Country,
 			&visit.Region,
 			&visit.City,
-			&visit.IsUnique,
 			&visit.TimeSpentOnPage,
+			&visit.IsUnique,
 		)
 
 		if err == sql.ErrNoRows {

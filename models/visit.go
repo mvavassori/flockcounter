@@ -17,8 +17,8 @@ type Visit struct {
 	Country         string    `json:"country"`
 	Region          string    `json:"region"`
 	City            string    `json:"city"`
-	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
+	IsUnique        bool      `json:"isUnique"`
 }
 
 type VisitReceiver struct {
@@ -28,8 +28,8 @@ type VisitReceiver struct {
 	Pathname        string    `json:"pathname"`
 	UserAgent       string    `json:"userAgent"`
 	Language        string    `json:"language"`
-	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
+	IsUnique        bool      `json:"isUnique"`
 }
 
 type VisitInsert struct {
@@ -46,8 +46,8 @@ type VisitInsert struct {
 	Country         string    `json:"country"`
 	Region          string    `json:"region"`
 	City            string    `json:"city"`
-	IsUnique        bool      `json:"isUnique"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
+	IsUnique        bool      `json:"isUnique"`
 }
 
 type VisitUpdateResponse struct {
