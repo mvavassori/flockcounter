@@ -29,7 +29,7 @@ type VisitReceiver struct {
 	UserAgent       string    `json:"userAgent"`
 	Language        string    `json:"language"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
-	IsUnique        bool      `json:"isUnique"`
+	// IsUnique        bool      `json:"isUnique"`
 }
 
 type VisitInsert struct {

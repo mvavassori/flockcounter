@@ -16,37 +16,15 @@ let previousPathname = window.location.pathname;
 
 console.log("Page loaded, startTime:", startTime);
 
-function isUniqueVisitor() {
-  const uniqueIdKey = "unique_id";
-
-  // Check if the unique_id exists in localStorage
-  if (localStorage.getItem(uniqueIdKey)) {
-    // The unique_id exists, so it's a returning visitor.
-    return false;
-  } else {
-    // The unique_id does not exist, so it's a new visitor.
-
-    // Generate a new unique identifier and store it in localStorage
-    const uniqueId =
-      Date.now().toString(36) + Math.random().toString(36).slice(2);
-    console.log("uniqueId generated:", uniqueId);
-    localStorage.setItem(uniqueIdKey, uniqueId);
-
-    return true;
-  }
-}
-
 // Function to handle sending the visit data
 function sendVisit(elapsedTime) {
   const payloadData = {
     timestamp: formattedStamp,
     referrer: currentReferrer,
     url: currentUrl,
-    // pathname: window.location.pathname,
     pathname: previousPathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    isUniqueVisit: isUniqueVisitor(),
     timeSpentOnPage: Math.round(elapsedTime),
   };
   let data = JSON.stringify(payloadData);

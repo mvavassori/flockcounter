@@ -143,7 +143,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// fmt.Println("Received text data:")
 		// fmt.Println(string(textData))
 
-		// // Get IP address
+		// todo
+		// //Get IP address
 		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		// if err != nil {
 		// 	log.Println("Error getting ip from remote addr", err)
@@ -169,6 +170,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 		defer geoip2DB.Close()
 
+		// todo
 		// parsedIP := net.ParseIP(ip)
 		// for testing
 		parsedIP := net.ParseIP("45.14.71.8")
@@ -228,6 +230,65 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		ua := useragent.Parse(visitReceiver.UserAgent)
 
+		url, err := url.Parse(visitReceiver.URL)
+		if err != nil {
+			log.Println("Error parsing URL", err)
+			http.Error(w, "Invalid URL format", http.StatusBadRequest)
+			return
+		}
+		domain := url.Hostname()
+
+		fmt.Println(domain)
+		fmt.Println("Frontend sent: ", visitReceiver)
+
+		// Look up the websiteId using the domain
+		var websiteId int
+		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		if err != nil {
+			log.Println("Error looking up websiteId", err)
+			http.Error(w, "Website not found", http.StatusNotFound)
+			return
+		}
+
+		// Generate daily salt or grab from cache if already generated
+		dailySalt, err := utils.GenerateDailySalt()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// Generate a unique identifier
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println(uniqueIdentifier)
+
+		// Check if the unique identifier exists in the daily_unique_identifiers table
+		var isUnique bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
+		if err != nil {
+			log.Println("Error checking for existing unique identifier", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Update the IsUnique field based on whether the unique identifier exists
+		if isUnique {
+			isUnique = false
+		} else {
+			// Add the unique identifier to the daily_unique_identifiers table
+			_, err := db.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
+			if err != nil {
+				log.Println("Error inserting unique identifier", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			isUnique = true
+		}
+
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
 			Timestamp:       visitReceiver.Timestamp,
@@ -241,29 +302,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			Country:         country,
 			Region:          region,
 			City:            city,
-			IsUnique:        visitReceiver.IsUnique,
+			IsUnique:        isUnique,
 			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
-		}
-
-		url, err := url.Parse(visit.URL)
-		if err != nil {
-			log.Println("Error parsing URL", err)
-			http.Error(w, "Invalid URL format", http.StatusBadRequest)
-			return
-		}
-		domain := url.Hostname()
-
-		fmt.Println(domain)
-
-		fmt.Println("Frontend sent: ", visitReceiver)
-
-		// Look up the websiteId using the domain
-		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		if err != nil {
-			log.Println("Error looking up websiteId", err)
-			http.Error(w, "Website not found", http.StatusNotFound)
-			return
 		}
 
 		// Perform the INSERT query to add the new visit to the database
