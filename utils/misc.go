@@ -42,6 +42,7 @@ type dailySalt struct {
 
 var dailySaltCache = make(map[string]dailySalt)
 
+// getDailySalt generates a random 16-byte salt
 func getDailySalt() ([]byte, error) {
 	// Generate a random 16-byte salt
 	salt := make([]byte, 16)
@@ -52,6 +53,7 @@ func getDailySalt() ([]byte, error) {
 	return salt, nil
 }
 
+// GenerateDailySalt generates a unique salt for the current day if it hasn't been generated yet.
 func GenerateDailySalt() ([]byte, error) {
 	now := time.Now()
 	dateString := now.Format("2006-01-02")
@@ -82,4 +84,15 @@ func GenerateUniqueIdentifier(dailySalt []byte, websiteDomain, ipAddress, userAg
 	hashedString := hex.EncodeToString(hashedBytes)
 
 	return hashedString, nil
+}
+
+func CalculateMedian(data []int) int {
+	n := len(data)
+	if n%2 == 1 {
+		// Odd number of values, return the middle value
+		return data[n/2]
+	} else {
+		// Even number of values, return the average of the two middle values
+		return (data[(n-1)/2] + data[n/2]) / 2
+	}
 }

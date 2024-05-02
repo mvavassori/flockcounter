@@ -5,13 +5,200 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
 func GetTopStats(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Check if the website exists
+		var exists bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
+		if err != nil {
+			log.Println("Error checking website existence:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if !exists {
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
+			return
+		}
+
+		// Extract start and end dates from the request query parameters
+		startDate := r.URL.Query().Get("startDate")
+		endDate := r.URL.Query().Get("endDate")
+
+		// Convert the dates to a format suitable for your database
+		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		var totalVisits []map[string]interface{}
+		var uniqueVisitors []map[string]interface{}
+		var averageVisitDuration []map[string]interface{}
+
+		// Goroutine 1: Total visits
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(`
+                SELECT DATE_TRUNC('day', timestamp) AS date, COUNT(*) AS count
+                FROM visits
+                WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+                GROUP BY date
+                ORDER BY date ASC`, domain, start, end)
+			if err != nil {
+				log.Println("Error getting total visits:", err)
+				return
+			}
+			defer rows.Close()
+
+			var dataPoints []map[string]interface{}
+			for rows.Next() {
+				var date time.Time
+				var count int
+				err = rows.Scan(&date, &count)
+				if err != nil {
+					log.Println("Error scanning total visits:", err)
+					return
+				}
+				dataPoints = append(dataPoints, map[string]interface{}{
+					"date":  date.Format("2006-01-02"),
+					"count": count,
+				})
+			}
+			mu.Lock()
+			totalVisits = dataPoints
+			mu.Unlock()
+		}()
+
+		// Goroutine 2: Unique visitors
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(`
+			SELECT
+				DATE_TRUNC('day', timestamp) AS date,
+				COUNT(*) AS count
+			FROM visits
+			WHERE
+				website_domain = $1
+				AND timestamp BETWEEN $2 AND $3
+				AND is_unique = true
+			GROUP BY date
+			ORDER BY date ASC`, domain, start, end)
+			if err != nil {
+				log.Println("Error getting unique visitors:", err)
+				return
+			}
+			defer rows.Close()
+
+			var dataPoints []map[string]interface{}
+			for rows.Next() {
+				var date time.Time
+				var count int
+				err = rows.Scan(&date, &count)
+				if err != nil {
+					log.Println("Error scanning unique visitors:", err)
+					return
+				}
+				dataPoints = append(dataPoints, map[string]interface{}{
+					"date":  date.Format("2006-01-02"),
+					"count": count,
+				})
+			}
+			mu.Lock()
+			uniqueVisitors = dataPoints
+			mu.Unlock()
+		}()
+
+		// Goroutine 3: Average visit duration
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(`
+			SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
+			FROM visits
+			WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+			GROUP BY date
+			ORDER BY date ASC`, domain, start, end)
+			if err != nil {
+				log.Println("Error getting average visit duration:", err)
+				return
+			}
+			defer rows.Close()
+
+			var dataPoints []map[string]interface{}
+			for rows.Next() {
+				var date time.Time
+				var medianTimeSpent float64
+				err = rows.Scan(&date, &medianTimeSpent)
+				if err != nil {
+					log.Println("Error scanning average visit duration:", err)
+					return
+				}
+
+				// Convert the time spent on page from milliseconds to seconds
+				medianTimeSpent = medianTimeSpent / 1000
+
+				// Convert the median time spent to minutes and seconds
+				minutes := int(medianTimeSpent / 60)
+				seconds := int(math.Mod(medianTimeSpent, 60))
+
+				dataPoints = append(dataPoints, map[string]interface{}{
+					"date":            date.Format("2006-01-02"),
+					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
+				})
+			}
+			mu.Lock()
+			averageVisitDuration = dataPoints
+			mu.Unlock()
+		}()
+
+		// Wait for all goroutines to complete
+		wg.Wait()
+
+		// Combine the results into a single JSON response
+		jsonStats, err := json.Marshal(map[string]interface{}{
+			"totalVisits":          totalVisits,
+			"uniqueVisitors":       uniqueVisitors,
+			"averageVisitDuration": averageVisitDuration,
+		})
+		if err != nil {
+			log.Println("Error marshalling statistics:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonStats)
+	}
+}
+
+func GetTopStats2(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the url
 		domain, err := utils.ExtractDomainFromURL(r)
@@ -85,77 +272,6 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 		// Convert the dataPoints slice to JSON
 		jsonStats, err := json.Marshal(dataPoints)
-		if err != nil {
-			log.Println("Error marshalling statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonStats)
-	}
-}
-func GetTopStats2(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE id = $1)", id).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
-			return
-		}
-
-		// Extract start and end dates from the request query parameters
-		startDate := r.URL.Query().Get("startDate")
-		endDate := r.URL.Query().Get("endDate")
-
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Query the database for statistics
-		stats, err := db.Query("SELECT COUNT(*) FROM visits WHERE website_id = $1 AND timestamp BETWEEN $2 AND $3", id, start, end)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var count int
-		if stats.Next() {
-			err = stats.Scan(&count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		jsonStats, err := json.Marshal(count)
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
