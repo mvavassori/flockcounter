@@ -51,7 +51,8 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/dashboard/browsers/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetBrowsers(db))).Methods("GET")
 	router.Handle("/api/dashboard/languages/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetLanguages(db))).Methods("GET")
 	router.Handle("/api/dashboard/countries/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCountries(db))).Methods("GET")
-	router.Handle("/api/dashboard/states/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetStates(db))).Methods("GET")
+	router.Handle("/api/dashboard/regions/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetRegions(db))).Methods("GET")
+	router.Handle("/api/dashboard/cities/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCities(db))).Methods("GET")
 
 	return router
 }

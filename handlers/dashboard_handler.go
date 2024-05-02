@@ -841,7 +841,7 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func GetStates(db *sql.DB) http.HandlerFunc {
+func GetRegions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the url
 		domain, err := utils.ExtractDomainFromURL(r)
@@ -881,7 +881,7 @@ func GetStates(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Query the database for statistics
-		stats, err := db.Query("SELECT state, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY state ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
+		stats, err := db.Query("SELECT region, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY region ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -890,22 +890,102 @@ func GetStates(db *sql.DB) http.HandlerFunc {
 
 		// Convert the statistics to JSON
 		defer stats.Close() // Close the result set after we're done with it
-		var state string
+		var region string
 		var count int
-		var states []string
+		var regions []string
 		var counts []int
 		for stats.Next() {
-			err = stats.Scan(&state, &count)
+			err = stats.Scan(&region, &count)
 			if err != nil {
 				log.Println("Error scanning statistics:", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			states = append(states, state)
+			regions = append(regions, region)
 			counts = append(counts, count)
 		}
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"states": states,
+			"regions": regions,
+			"counts":  counts,
+		})
+		if err != nil {
+			log.Println("Error marshalling statistics:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonStats)
+	}
+}
+
+// get cities
+func GetCities(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Check if the website exists
+		var exists bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
+		if err != nil {
+			log.Println("Error checking website existence:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if !exists {
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
+			return
+		}
+
+		// Extract start and end dates from the request query parameters
+		startDate := r.URL.Query().Get("startDate")
+		endDate := r.URL.Query().Get("endDate")
+
+		// Convert the dates to a format suitable for your database
+		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Query the database for statistics
+		stats, err := db.Query("SELECT city, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY city ORDER BY COUNT(*) DESC LIMIT 10", domain, start, end)
+		if err != nil {
+			log.Println("Error getting website statistics:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Convert the statistics to JSON
+		defer stats.Close() // Close the result set after we're done with it
+		var city string
+		var count int
+		var cities []string
+		var counts []int
+		for stats.Next() {
+			err = stats.Scan(&city, &count)
+			if err != nil {
+				log.Println("Error scanning statistics:", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			cities = append(cities, city)
+			counts = append(counts, count)
+		}
+		jsonStats, err := json.Marshal(map[string]interface{}{
+			"cities": cities,
 			"counts": counts,
 		})
 		if err != nil {

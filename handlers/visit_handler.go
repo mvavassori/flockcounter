@@ -152,6 +152,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// 	fmt.Println("Received request from IP:", ip)
 		// }
 
+		// todo make a separate function to get location data
 		// Get home directory
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
