@@ -85,14 +85,3 @@ func GenerateUniqueIdentifier(dailySalt []byte, websiteDomain, ipAddress, userAg
 
 	return hashedString, nil
 }
-
-func CalculateMedian(data []int) int {
-	n := len(data)
-	if n%2 == 1 {
-		// Odd number of values, return the middle value
-		return data[n/2]
-	} else {
-		// Even number of values, return the average of the two middle values
-		return (data[(n-1)/2] + data[n/2]) / 2
-	}
-}
