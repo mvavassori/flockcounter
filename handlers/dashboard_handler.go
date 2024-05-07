@@ -40,24 +40,33 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 
 		var totalVisits []map[string]interface{}
 		var uniqueVisitors []map[string]interface{}
 		var averageVisitDuration []map[string]interface{}
+
+		var totalVisitsAggregate int
+		var uniqueVisitorsAggregate int
+		var averageVisitDurationAggregate float64
+
+		// Generate a list of all dates in the range
+		dates := make([]time.Time, 0)
+		for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
+			dates = append(dates, d)
+		}
 
 		// Goroutine 1: Total visits
 		wg.Add(1)
@@ -88,7 +97,26 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 					"date":  date.Format("2006-01-02"),
 					"count": count,
 				})
+				totalVisitsAggregate += count
 			}
+
+			// Fill in missing dates with zero values
+			for _, d := range dates {
+				found := false
+				for _, dp := range dataPoints {
+					if dp["date"] == d.Format("2006-01-02") {
+						found = true
+						break
+					}
+				}
+				if !found {
+					dataPoints = append(dataPoints, map[string]interface{}{
+						"date":  d.Format("2006-01-02"),
+						"count": 0,
+					})
+				}
+			}
+
 			mu.Lock()
 			totalVisits = dataPoints
 			mu.Unlock()
@@ -99,16 +127,16 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		go func() {
 			defer wg.Done()
 			rows, err := db.Query(`
-			SELECT
-				DATE_TRUNC('day', timestamp) AS date,
-				COUNT(*) AS count
-			FROM visits
-			WHERE
-				website_domain = $1
-				AND timestamp BETWEEN $2 AND $3
-				AND is_unique = true
-			GROUP BY date
-			ORDER BY date ASC`, domain, start, end)
+                SELECT
+                    DATE_TRUNC('day', timestamp) AS date,
+                    COUNT(*) AS count
+                FROM visits
+                WHERE
+                    website_domain = $1
+                    AND timestamp BETWEEN $2 AND $3
+                    AND is_unique = true
+                GROUP BY date
+                ORDER BY date ASC`, domain, start, end)
 			if err != nil {
 				log.Println("Error getting unique visitors:", err)
 				return
@@ -128,7 +156,26 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 					"date":  date.Format("2006-01-02"),
 					"count": count,
 				})
+				uniqueVisitorsAggregate += count
 			}
+
+			// Fill in missing dates with zero values
+			for _, d := range dates {
+				found := false
+				for _, dp := range dataPoints {
+					if dp["date"] == d.Format("2006-01-02") {
+						found = true
+						break
+					}
+				}
+				if !found {
+					dataPoints = append(dataPoints, map[string]interface{}{
+						"date":  d.Format("2006-01-02"),
+						"count": 0,
+					})
+				}
+			}
+
 			mu.Lock()
 			uniqueVisitors = dataPoints
 			mu.Unlock()
@@ -139,11 +186,11 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		go func() {
 			defer wg.Done()
 			rows, err := db.Query(`
-			SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
-			FROM visits
-			WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-			GROUP BY date
-			ORDER BY date ASC`, domain, start, end)
+                SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
+                FROM visits
+                WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+                GROUP BY date
+                ORDER BY date ASC`, domain, start, end)
 			if err != nil {
 				log.Println("Error getting average visit duration:", err)
 				return
@@ -171,7 +218,26 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 					"date":            date.Format("2006-01-02"),
 					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
 				})
+				averageVisitDurationAggregate += medianTimeSpent
 			}
+
+			// Fill in missing dates with zero seconds values
+			for _, d := range dates {
+				found := false
+				for _, dp := range dataPoints {
+					if dp["date"] == d.Format("2006-01-02") {
+						found = true
+						break
+					}
+				}
+				if !found {
+					dataPoints = append(dataPoints, map[string]interface{}{
+						"date":            d.Format("2006-01-02"),
+						"medianTimeSpent": "0m 0s",
+					})
+				}
+			}
+
 			mu.Lock()
 			averageVisitDuration = dataPoints
 			mu.Unlock()
@@ -180,11 +246,31 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		// Wait for all goroutines to complete
 		wg.Wait()
 
+		// Calculate the average visit duration aggregate
+		averageVisitDurationAggregate /= float64(len(averageVisitDuration))
+
+		// Format the average visit duration aggregate in a readable format
+		minutes := int(averageVisitDurationAggregate / 60)
+		seconds := int(math.Mod(averageVisitDurationAggregate, 60))
+		averageVisitDurationAggregateFormatted := fmt.Sprintf("%dm %ds", minutes, seconds)
+
+		// Sort the slices in ascending order by date
+		utils.SortByDate(totalVisits)
+		utils.SortByDate(uniqueVisitors)
+		utils.SortByDate(averageVisitDuration)
+
 		// Combine the results into a single JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"totalVisits":          totalVisits,
-			"uniqueVisitors":       uniqueVisitors,
-			"averageVisitDuration": averageVisitDuration,
+			"perDayStats": map[string]interface{}{
+				"totalVisits":          totalVisits,
+				"uniqueVisitors":       uniqueVisitors,
+				"averageVisitDuration": averageVisitDuration,
+			},
+			"aggregates": map[string]interface{}{
+				"totalVisits":          totalVisitsAggregate,
+				"uniqueVisitors":       uniqueVisitorsAggregate,
+				"averageVisitDuration": averageVisitDurationAggregateFormatted,
+			},
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/mileusna/useragent"
@@ -84,4 +85,12 @@ func GenerateUniqueIdentifier(dailySalt []byte, websiteDomain, ipAddress, userAg
 	hashedString := hex.EncodeToString(hashedBytes)
 
 	return hashedString, nil
+}
+
+func SortByDate(slice []map[string]interface{}) {
+	sort.Slice(slice, func(i, j int) bool {
+		t1, _ := time.Parse("2006-01-02", slice[i]["date"].(string))
+		t2, _ := time.Parse("2006-01-02", slice[j]["date"].(string))
+		return t1.Before(t2)
+	})
 }
