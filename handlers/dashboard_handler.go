@@ -51,6 +51,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 
@@ -181,16 +182,18 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			mu.Unlock()
 		}()
 
+		var visitDaysCount int
+
 		// Goroutine 3: Average visit duration
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			rows, err := db.Query(`
-                SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
-                FROM visits
-                WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-                GROUP BY date
-                ORDER BY date ASC`, domain, start, end)
+        SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
+        FROM visits
+        WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+        GROUP BY date
+        ORDER BY date ASC`, domain, start, end)
 			if err != nil {
 				log.Println("Error getting average visit duration:", err)
 				return
@@ -219,6 +222,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
 				})
 				averageVisitDurationAggregate += medianTimeSpent
+				visitDaysCount++
 			}
 
 			// Fill in missing dates with zero seconds values
@@ -247,7 +251,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		wg.Wait()
 
 		// Calculate the average visit duration aggregate
-		averageVisitDurationAggregate /= float64(len(averageVisitDuration))
+		averageVisitDurationAggregate /= float64(visitDaysCount)
 
 		// Format the average visit duration aggregate in a readable format
 		minutes := int(averageVisitDurationAggregate / 60)
@@ -397,13 +401,13 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -477,13 +481,13 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -557,16 +561,14 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
-			log.Println("Error time parsing start date:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
-			log.Println("Error time parsing end date:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -638,13 +640,13 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -717,13 +719,13 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -796,13 +798,13 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -875,13 +877,13 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -954,13 +956,13 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -1034,13 +1036,13 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for your database
-		start, err := time.Parse("2006-01-02 15:04:05.999", startDate)
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		end, err := time.Parse("2006-01-02 15:04:05.999", endDate)
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
