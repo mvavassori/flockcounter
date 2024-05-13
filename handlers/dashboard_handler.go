@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -514,7 +515,16 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			referrers = append(referrers, referrer)
+			// Leave out the http:// or https:// part from the referrer url
+			u, err := url.Parse(referrer)
+			if err != nil {
+				log.Println("Error parsing referrer URL:", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			referrerWithoutProtocol := u.Host + u.Path
+
+			referrers = append(referrers, referrerWithoutProtocol)
 			counts = append(counts, count)
 		}
 
@@ -1008,7 +1018,6 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// get cities
 func GetCities(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the url
