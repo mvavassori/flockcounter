@@ -10,6 +10,11 @@ let currentUrl = window.location.href;
 
 let currentReferrer = document.referrer || null;
 
+if (currentReferrer) {
+  let url = new URL(currentReferrer);
+  currentReferrer = url.origin + url.pathname;
+}
+
 console.log("window.location.host", window.location.host);
 
 let previousPathname = window.location.pathname;

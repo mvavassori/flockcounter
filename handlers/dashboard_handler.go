@@ -1,3 +1,4 @@
+// todo handle when dashboard data for a given period is null
 package handlers
 
 import (
@@ -5,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
+	"sort"
+
+	// "math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -54,33 +57,64 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Extract the interval from the request query parameters
+		interval := r.URL.Query().Get("interval")
+		if interval != "hour" && interval != "day" && interval != "month" {
+			http.Error(w, "Invalid interval", http.StatusBadRequest)
+			return
+		}
+
+		// Determine the time layout based on the interval
+		var layout string
+		switch interval {
+		case "hour":
+			layout = "2006-01-02 15"
+		case "month":
+			layout = "2006-01"
+		case "day":
+			fallthrough
+		default:
+			layout = "2006-01-02"
+		}
+
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 
 		var totalVisits []map[string]interface{}
 		var uniqueVisitors []map[string]interface{}
-		var averageVisitDuration []map[string]interface{}
+		var medianVisitDuration []map[string]interface{}
 
 		var totalVisitsAggregate int
 		var uniqueVisitorsAggregate int
-		var averageVisitDurationAggregate float64
+		var medianVisitDurationAggregate float64
+		var visitPeriodsCount int
 
-		// Generate a list of all dates in the range
-		dates := make([]time.Time, 0)
-		for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
-			dates = append(dates, d)
+		// Generate a list of all periods in the range
+		periods := make([]time.Time, 0)
+		for d := start; !d.After(end); {
+			periods = append(periods, d)
+			switch interval {
+			case "hour":
+				d = d.Add(time.Hour)
+			case "month":
+				d = d.AddDate(0, 1, 0)
+			case "day":
+				fallthrough
+			default:
+				d = d.AddDate(0, 0, 1)
+			}
 		}
 
 		// Goroutine 1: Total visits
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(`
-                SELECT DATE_TRUNC('day', timestamp) AS date, COUNT(*) AS count
-                FROM visits
-                WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-                GROUP BY date
-                ORDER BY date ASC`, domain, start, end)
+			rows, err := db.Query(fmt.Sprintf(`
+				SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+				FROM visits
+				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+				GROUP BY period
+				ORDER BY period ASC`, interval), domain, start, end)
 			if err != nil {
 				log.Println("Error getting total visits:", err)
 				return
@@ -89,33 +123,33 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 			var dataPoints []map[string]interface{}
 			for rows.Next() {
-				var date time.Time
+				var period time.Time
 				var count int
-				err = rows.Scan(&date, &count)
+				err = rows.Scan(&period, &count)
 				if err != nil {
 					log.Println("Error scanning total visits:", err)
 					return
 				}
 				dataPoints = append(dataPoints, map[string]interface{}{
-					"date":  date.Format("2006-01-02"),
-					"count": count,
+					"period": period.Format(layout),
+					"count":  count,
 				})
 				totalVisitsAggregate += count
 			}
 
-			// Fill in missing dates with zero values
-			for _, d := range dates {
+			// Fill in missing periods with zero values
+			for _, p := range periods {
 				found := false
 				for _, dp := range dataPoints {
-					if dp["date"] == d.Format("2006-01-02") {
+					if dp["period"] == p.Format(layout) {
 						found = true
 						break
 					}
 				}
 				if !found {
 					dataPoints = append(dataPoints, map[string]interface{}{
-						"date":  d.Format("2006-01-02"),
-						"count": 0,
+						"period": p.Format(layout),
+						"count":  0,
 					})
 				}
 			}
@@ -129,17 +163,12 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(`
-                SELECT
-                    DATE_TRUNC('day', timestamp) AS date,
-                    COUNT(*) AS count
-                FROM visits
-                WHERE
-                    website_domain = $1
-                    AND timestamp BETWEEN $2 AND $3
-                    AND is_unique = true
-                GROUP BY date
-                ORDER BY date ASC`, domain, start, end)
+			rows, err := db.Query(fmt.Sprintf(`
+				SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+				FROM visits
+				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND is_unique = true
+				GROUP BY period
+				ORDER BY period ASC`, interval), domain, start, end)
 			if err != nil {
 				log.Println("Error getting unique visitors:", err)
 				return
@@ -148,33 +177,33 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 			var dataPoints []map[string]interface{}
 			for rows.Next() {
-				var date time.Time
+				var period time.Time
 				var count int
-				err = rows.Scan(&date, &count)
+				err = rows.Scan(&period, &count)
 				if err != nil {
 					log.Println("Error scanning unique visitors:", err)
 					return
 				}
 				dataPoints = append(dataPoints, map[string]interface{}{
-					"date":  date.Format("2006-01-02"),
-					"count": count,
+					"period": period.Format(layout),
+					"count":  count,
 				})
 				uniqueVisitorsAggregate += count
 			}
 
-			// Fill in missing dates with zero values
-			for _, d := range dates {
+			// Fill in missing periods with zero values
+			for _, p := range periods {
 				found := false
 				for _, dp := range dataPoints {
-					if dp["date"] == d.Format("2006-01-02") {
+					if dp["period"] == p.Format(layout) {
 						found = true
 						break
 					}
 				}
 				if !found {
 					dataPoints = append(dataPoints, map[string]interface{}{
-						"date":  d.Format("2006-01-02"),
-						"count": 0,
+						"period": p.Format(layout),
+						"count":  0,
 					})
 				}
 			}
@@ -184,98 +213,110 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			mu.Unlock()
 		}()
 
-		var visitDaysCount int
-
-		// Goroutine 3: Average visit duration
+		// Goroutine 3: Median visit duration
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(`
-        SELECT DATE_TRUNC('day', timestamp) AS date, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_spent_on_page) AS median_time_spent
-        FROM visits
-        WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-        GROUP BY date
-        ORDER BY date ASC`, domain, start, end)
+			rows, err := db.Query(fmt.Sprintf(`
+				SELECT DATE_TRUNC('%s', timestamp) AS period, time_spent_on_page
+				FROM visits
+				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+				ORDER BY period ASC`, interval), domain, start, end)
 			if err != nil {
-				log.Println("Error getting average visit duration:", err)
+				log.Println("Error getting median visit duration:", err)
 				return
 			}
 			defer rows.Close()
 
-			var dataPoints []map[string]interface{}
+			periodDurations := make(map[time.Time][]float64)
 			for rows.Next() {
-				var date time.Time
-				var medianTimeSpent float64
-				err = rows.Scan(&date, &medianTimeSpent)
+				var period time.Time
+				var timeSpent float64
+				err = rows.Scan(&period, &timeSpent)
 				if err != nil {
-					log.Println("Error scanning average visit duration:", err)
+					log.Println("Error scanning median visit duration:", err)
 					return
 				}
-
-				// Convert the time spent on page from milliseconds to seconds
-				medianTimeSpent = medianTimeSpent / 1000
-
-				// Convert the median time spent to minutes and seconds
-				minutes := int(medianTimeSpent / 60)
-				seconds := int(math.Mod(medianTimeSpent, 60))
-
-				dataPoints = append(dataPoints, map[string]interface{}{
-					"date":            date.Format("2006-01-02"),
-					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
-				})
-				averageVisitDurationAggregate += medianTimeSpent
-				visitDaysCount++
+				periodDurations[period] = append(periodDurations[period], timeSpent)
 			}
 
-			// Fill in missing dates with zero seconds values
-			for _, d := range dates {
+			var dataPoints []map[string]interface{}
+			for period, durations := range periodDurations {
+				sort.Float64s(durations)
+				medianIndex := len(durations) / 2
+				var median float64
+				if len(durations)%2 == 0 {
+					median = (durations[medianIndex-1] + durations[medianIndex]) / 2
+				} else {
+					median = durations[medianIndex]
+				}
+
+				// Convert the median time spent to seconds
+				median /= 1000
+
+				// Convert the median time spent to minutes and seconds
+				minutes := int(median / 60)
+				seconds := int(median) % 60
+
+				dataPoints = append(dataPoints, map[string]interface{}{
+					"period":          period.Format(layout),
+					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
+				})
+				medianVisitDurationAggregate += median
+				visitPeriodsCount++
+			}
+
+			// Fill in missing periods with zero seconds values
+			for _, p := range periods {
 				found := false
 				for _, dp := range dataPoints {
-					if dp["date"] == d.Format("2006-01-02") {
+					if dp["period"] == p.Format(layout) {
 						found = true
 						break
 					}
 				}
 				if !found {
 					dataPoints = append(dataPoints, map[string]interface{}{
-						"date":            d.Format("2006-01-02"),
+						"period":          p.Format(layout),
 						"medianTimeSpent": "0m 0s",
 					})
 				}
 			}
 
 			mu.Lock()
-			averageVisitDuration = dataPoints
+			medianVisitDuration = dataPoints
 			mu.Unlock()
 		}()
 
 		// Wait for all goroutines to complete
 		wg.Wait()
 
-		// Calculate the average visit duration aggregate
-		averageVisitDurationAggregate /= float64(visitDaysCount)
+		// Calculate the median visit duration aggregate
+		if visitPeriodsCount > 0 {
+			medianVisitDurationAggregate /= float64(visitPeriodsCount)
+		}
 
-		// Format the average visit duration aggregate in a readable format
-		minutes := int(averageVisitDurationAggregate / 60)
-		seconds := int(math.Mod(averageVisitDurationAggregate, 60))
-		averageVisitDurationAggregateFormatted := fmt.Sprintf("%dm %ds", minutes, seconds)
+		// Format the median visit duration aggregate in a readable format
+		minutes := int(medianVisitDurationAggregate / 60)
+		seconds := int(medianVisitDurationAggregate) % 60
+		medianVisitDurationAggregateFormatted := fmt.Sprintf("%dm %ds", minutes, seconds)
 
-		// Sort the slices in ascending order by date
-		utils.SortByDate(totalVisits)
-		utils.SortByDate(uniqueVisitors)
-		utils.SortByDate(averageVisitDuration)
+		// Sort the results by period
+		utils.SortByPeriod(totalVisits, interval)
+		utils.SortByPeriod(uniqueVisitors, interval)
+		utils.SortByPeriod(medianVisitDuration, interval)
 
 		// Combine the results into a single JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"perDayStats": map[string]interface{}{
-				"totalVisits":          totalVisits,
-				"uniqueVisitors":       uniqueVisitors,
-				"averageVisitDuration": averageVisitDuration,
+			"perIntervalStats": map[string]interface{}{
+				"totalVisits":         totalVisits,
+				"uniqueVisitors":      uniqueVisitors,
+				"medianVisitDuration": medianVisitDuration,
 			},
 			"aggregates": map[string]interface{}{
-				"totalVisits":          totalVisitsAggregate,
-				"uniqueVisitors":       uniqueVisitorsAggregate,
-				"averageVisitDuration": averageVisitDurationAggregateFormatted,
+				"totalVisits":         totalVisitsAggregate,
+				"uniqueVisitors":      uniqueVisitorsAggregate,
+				"medianVisitDuration": medianVisitDurationAggregateFormatted,
 			},
 		})
 		if err != nil {

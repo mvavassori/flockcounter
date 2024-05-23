@@ -94,3 +94,25 @@ func SortByDate(slice []map[string]interface{}) {
 		return t1.Before(t2)
 	})
 }
+
+func SortByPeriod(slice []map[string]interface{}, interval string) {
+	var layout string
+
+	// Determine the time layout based on the interval
+	switch interval {
+	case "hour":
+		layout = "2006-01-02 15"
+	case "month":
+		layout = "2006-01"
+	case "day":
+		fallthrough
+	default:
+		layout = "2006-01-02"
+	}
+
+	sort.Slice(slice, func(i, j int) bool {
+		t1, _ := time.Parse(layout, slice[i]["period"].(string))
+		t2, _ := time.Parse(layout, slice[j]["period"].(string))
+		return t1.Before(t2)
+	})
+}
