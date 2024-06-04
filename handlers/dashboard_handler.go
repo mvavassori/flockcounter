@@ -1,4 +1,3 @@
-// todo handle when dashboard data for a given period is null
 package handlers
 
 import (
@@ -6,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 
 	// "math"
@@ -18,6 +18,7 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
+// todo fix hour interval format
 func GetTopStats(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the url
@@ -68,7 +69,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		var layout string
 		switch interval {
 		case "hour":
-			layout = "2006-01-02 15"
+			layout = "15"
 		case "month":
 			layout = "2006-01"
 		case "day":
@@ -297,9 +298,18 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Format the median visit duration aggregate in a readable format
-		minutes := int(medianVisitDurationAggregate / 60)
-		seconds := int(medianVisitDurationAggregate) % 60
-		medianVisitDurationAggregateFormatted := fmt.Sprintf("%dm %ds", minutes, seconds)
+		hours := int(medianVisitDurationAggregate / 3600)
+		minutes := int(math.Mod(medianVisitDurationAggregate, 3600) / 60)
+		seconds := int(math.Mod(medianVisitDurationAggregate, 60))
+
+		var medianVisitDurationAggregateFormatted string
+		if hours > 0 {
+			medianVisitDurationAggregateFormatted = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+		} else if minutes > 0 {
+			medianVisitDurationAggregateFormatted = fmt.Sprintf("%dm %ds", minutes, seconds)
+		} else {
+			medianVisitDurationAggregateFormatted = fmt.Sprintf("%ds", seconds)
+		}
 
 		// Sort the results by period
 		utils.SortByPeriod(totalVisits, interval)
