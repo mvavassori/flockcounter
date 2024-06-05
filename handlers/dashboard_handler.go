@@ -155,6 +155,11 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 				}
 			}
 
+			// Sort data points by period
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i]["period"].(string) < dataPoints[j]["period"].(string)
+			})
+
 			mu.Lock()
 			totalVisits = dataPoints
 			mu.Unlock()
@@ -209,6 +214,11 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 				}
 			}
 
+			// Sort data points by period
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i]["period"].(string) < dataPoints[j]["period"].(string)
+			})
+
 			mu.Lock()
 			uniqueVisitors = dataPoints
 			mu.Unlock()
@@ -255,13 +265,24 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 				// Convert the median time spent to seconds
 				median /= 1000
 
-				// Convert the median time spent to minutes and seconds
-				minutes := int(median / 60)
-				seconds := int(median) % 60
+				// Convert the median time spent to the correct time format
+				var timeFormat string
+				if median < 60 {
+					timeFormat = fmt.Sprintf("%ds", int(median))
+				} else if median < 3600 {
+					minutes := int(median / 60)
+					seconds := int(median) % 60
+					timeFormat = fmt.Sprintf("%dm %ds", minutes, seconds)
+				} else {
+					hours := int(median / 3600)
+					minutes := (int(median) % 3600) / 60
+					seconds := int(median) % 60
+					timeFormat = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+				}
 
 				dataPoints = append(dataPoints, map[string]interface{}{
 					"period":          period.Format(layout),
-					"medianTimeSpent": fmt.Sprintf("%dm %ds", minutes, seconds),
+					"medianTimeSpent": timeFormat,
 				})
 				medianVisitDurationAggregate += median
 				visitPeriodsCount++
@@ -279,10 +300,15 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 				if !found {
 					dataPoints = append(dataPoints, map[string]interface{}{
 						"period":          p.Format(layout),
-						"medianTimeSpent": "0m 0s",
+						"medianTimeSpent": "0s",
 					})
 				}
 			}
+
+			// Sort data points by period
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i]["period"].(string) < dataPoints[j]["period"].(string)
+			})
 
 			mu.Lock()
 			medianVisitDuration = dataPoints
