@@ -101,7 +101,7 @@ func SortByPeriod(slice []map[string]interface{}, interval string) {
 	// Determine the time layout based on the interval
 	switch interval {
 	case "hour":
-		layout = "2006-01-02 15"
+		layout = "15"
 	case "month":
 		layout = "2006-01"
 	case "day":
