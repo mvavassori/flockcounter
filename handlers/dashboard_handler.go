@@ -18,7 +18,6 @@ import (
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
-// todo fix hour interval format
 func GetTopStats(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the url

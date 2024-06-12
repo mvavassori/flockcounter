@@ -485,7 +485,7 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 		data := map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
-			"expiresAt":    int64(time.Now().Add(time.Second * 15).Unix()),
+			"expiresAt":    time.Now().Add(time.Minute * 15).Unix(),
 		}
 
 		response, err := json.Marshal(data)
