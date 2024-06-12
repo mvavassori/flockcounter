@@ -237,9 +237,26 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Invalid URL format", http.StatusBadRequest)
 			return
 		}
+
 		domain := url.Hostname()
 
 		fmt.Println(domain)
+
+		// extract the referrer
+		referrer := visitReceiver.Referrer
+
+		// remove the protocol from the referrer
+		u, err := url.Parse(referrer)
+		if err != nil {
+			log.Println("Error parsing referrer", err)
+			http.Error(w, "Invalid referrer format", http.StatusBadRequest)
+			return
+		}
+
+		referrerWithoutProtocol := u.Host + u.Path
+
+		fmt.Println("referrerWithoutProtocol", referrerWithoutProtocol)
+
 		fmt.Println("Frontend sent: ", visitReceiver)
 
 		// Look up the websiteId using the domain
@@ -259,7 +276,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Generate a unique identifier
-		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent)
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent) // todo
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -292,8 +309,9 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
-			Timestamp:       visitReceiver.Timestamp,
-			Referrer:        visitReceiver.Referrer,
+			Timestamp: visitReceiver.Timestamp,
+			// Referrer:        visitReceiver.Referrer,
+			Referrer:        referrerWithoutProtocol,
 			URL:             visitReceiver.URL,
 			Pathname:        visitReceiver.Pathname,
 			DeviceType:      utils.GetDeviceType(&ua),

@@ -366,9 +366,99 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// func GetPages(db *sql.DB) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		// Extract the domain from the url
+// 		domain, err := utils.ExtractDomainFromURL(r)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Check if the website exists
+// 		var exists bool
+// 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
+// 		if err != nil {
+// 			log.Println("Error checking website existence:", err)
+// 			http.Error(w, err.Error(), http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		if !exists {
+// 			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
+// 			return
+// 		}
+
+// 		// Extract start and end dates from the request query parameters
+// 		startDate := r.URL.Query().Get("startDate")
+// 		endDate := r.URL.Query().Get("endDate")
+
+// 		// Convert the dates to a format suitable for my database
+// 		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+// 		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Extract limit and offset from query string
+// 		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+// 		if err != nil || limit <= 0 {
+// 			limit = 10 // default limit
+// 		}
+// 		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+// 		if err != nil || offset < 0 {
+// 			offset = 0 // default offset
+// 		}
+
+// 		// Query the database for statistics
+// 		stats, err := db.Query("SELECT pathname, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+// 		if err != nil {
+// 			log.Println("Error getting website statistics:", err)
+// 			http.Error(w, err.Error(), http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		// Convert the statistics to JSON
+// 		defer stats.Close() // Close the result set after we're done with it
+// 		var path string
+// 		var count int
+// 		var paths []string
+// 		var counts []int
+// 		for stats.Next() {
+// 			err = stats.Scan(&path, &count)
+// 			if err != nil {
+// 				log.Println("Error scanning statistics:", err)
+// 				http.Error(w, err.Error(), http.StatusInternalServerError)
+// 				return
+// 			}
+// 			paths = append(paths, path)
+// 			counts = append(counts, count)
+// 		}
+
+// 		jsonStats, err := json.Marshal(map[string]interface{}{
+// 			"paths":  paths,
+// 			"counts": counts,
+// 		})
+// 		if err != nil {
+// 			log.Println("Error marshalling statistics:", err)
+// 			http.Error(w, err.Error(), http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		w.Header().Set("Content-Type", "application/json")
+// 		w.WriteHeader(http.StatusOK)
+// 		w.Write(jsonStats)
+// 	}
+// }
+
 func GetPages(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the domain from the url
+		// Extract the domain from the URL
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -393,7 +483,7 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		// Convert the dates to a format suitable for my database
+		// Convert the dates to a format suitable for the database
 		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -415,8 +505,45 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT pathname, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT pathname, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
