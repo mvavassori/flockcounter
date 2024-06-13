@@ -10,7 +10,7 @@ import (
 
 	// "math"
 	"net/http"
-	"net/url"
+	// "net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -45,17 +45,23 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
+		fmt.Println("startDate", startDate)
+		fmt.Println("endDate", endDate)
+
 		// Convert the dates to a format suitable for my database
 		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		fmt.Println("start", start)
 		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		fmt.Println("end", end)
 
 		// Extract the interval from the request query parameters
 		interval := r.URL.Query().Get("interval")
@@ -366,96 +372,6 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// func GetPages(db *sql.DB) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		// Extract the domain from the url
-// 		domain, err := utils.ExtractDomainFromURL(r)
-// 		if err != nil {
-// 			http.Error(w, err.Error(), http.StatusBadRequest)
-// 			return
-// 		}
-
-// 		// Check if the website exists
-// 		var exists bool
-// 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-// 		if err != nil {
-// 			log.Println("Error checking website existence:", err)
-// 			http.Error(w, err.Error(), http.StatusInternalServerError)
-// 			return
-// 		}
-
-// 		if !exists {
-// 			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-// 			return
-// 		}
-
-// 		// Extract start and end dates from the request query parameters
-// 		startDate := r.URL.Query().Get("startDate")
-// 		endDate := r.URL.Query().Get("endDate")
-
-// 		// Convert the dates to a format suitable for my database
-// 		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
-// 		if err != nil {
-// 			http.Error(w, err.Error(), http.StatusBadRequest)
-// 			return
-// 		}
-// 		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
-// 		if err != nil {
-// 			http.Error(w, err.Error(), http.StatusBadRequest)
-// 			return
-// 		}
-
-// 		// Extract limit and offset from query string
-// 		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
-// 		if err != nil || limit <= 0 {
-// 			limit = 10 // default limit
-// 		}
-// 		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
-// 		if err != nil || offset < 0 {
-// 			offset = 0 // default offset
-// 		}
-
-// 		// Query the database for statistics
-// 		stats, err := db.Query("SELECT pathname, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY pathname ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
-// 		if err != nil {
-// 			log.Println("Error getting website statistics:", err)
-// 			http.Error(w, err.Error(), http.StatusInternalServerError)
-// 			return
-// 		}
-
-// 		// Convert the statistics to JSON
-// 		defer stats.Close() // Close the result set after we're done with it
-// 		var path string
-// 		var count int
-// 		var paths []string
-// 		var counts []int
-// 		for stats.Next() {
-// 			err = stats.Scan(&path, &count)
-// 			if err != nil {
-// 				log.Println("Error scanning statistics:", err)
-// 				http.Error(w, err.Error(), http.StatusInternalServerError)
-// 				return
-// 			}
-// 			paths = append(paths, path)
-// 			counts = append(counts, count)
-// 		}
-
-// 		jsonStats, err := json.Marshal(map[string]interface{}{
-// 			"paths":  paths,
-// 			"counts": counts,
-// 		})
-// 		if err != nil {
-// 			log.Println("Error marshalling statistics:", err)
-// 			http.Error(w, err.Error(), http.StatusInternalServerError)
-// 			return
-// 		}
-
-// 		w.Header().Set("Content-Type", "application/json")
-// 		w.WriteHeader(http.StatusOK)
-// 		w.Write(jsonStats)
-// 	}
-// }
-
 func GetPages(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the domain from the URL
@@ -632,13 +548,58 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// // Query the database for statistics
+		// stats, err := db.Query("SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		// if err != nil {
+		// 	log.Println("Error getting website statistics:", err)
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
 
 		// Convert the statistics to JSON
 		defer stats.Close() // Close the result set after we're done with it
@@ -653,16 +614,16 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			// Leave out the http:// or https:// part from the referrer url
-			u, err := url.Parse(referrer)
-			if err != nil {
-				log.Println("Error parsing referrer URL:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			referrerWithoutProtocol := u.Host + u.Path
+			// // Leave out the http:// or https:// part from the referrer url
+			// u, err := url.Parse(referrer)
+			// if err != nil {
+			// 	log.Println("Error parsing referrer URL:", err)
+			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+			// 	return
+			// }
+			// referrerWithoutProtocol := u.Host + u.Path
 
-			referrers = append(referrers, referrerWithoutProtocol)
+			referrers = append(referrers, referrer)
 			counts = append(counts, count)
 		}
 
@@ -721,8 +682,44 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT device_type, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += " GROUP BY device_type ORDER BY COUNT(*) DESC"
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT device_type, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY device_type ORDER BY COUNT(*) DESC", domain, start, end)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -800,8 +797,44 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT os, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += " GROUP BY os ORDER BY COUNT(*) DESC"
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT os, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY os ORDER BY COUNT(*) DESC", domain, start, end)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -879,8 +912,44 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT browser, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += " GROUP BY browser ORDER BY COUNT(*) DESC"
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT browser, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY browser ORDER BY COUNT(*) DESC", domain, start, end)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -968,7 +1037,45 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
-		stats, err := db.Query("SELECT language, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY language ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		// Initialize query and parameters
+		baseQuery := "SELECT language, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY language ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
+		// Query the database for statistics
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1056,8 +1163,45 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT country, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY country ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT country, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY country ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1145,8 +1289,45 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT region, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY region ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT region, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY region ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1234,8 +1415,45 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 			offset = 0 // default offset
 		}
 
+		// Initialize query and parameters
+		baseQuery := "SELECT city, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
+			}
+		}
+
+		// Complete the query
+		baseQuery += fmt.Sprintf(" GROUP BY city ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		params = append(params, limit, offset)
+
+		// Print the final query and parameters
+		log.Printf("Executing query: %s", baseQuery)
+		log.Printf("With parameters: %v", params)
+
 		// Query the database for statistics
-		stats, err := db.Query("SELECT city, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY city ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
+		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
 			log.Println("Error getting website statistics:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

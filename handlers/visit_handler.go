@@ -12,7 +12,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
+
+	// "time"
 
 	// "sync"
 
@@ -335,7 +336,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		_, err = db.Exec(insertQuery,
 			websiteId,
 			domain,
-			time.Now(),
+			// time.Now(),
+			visit.Timestamp,
 			visit.Referrer,
 			visit.URL,
 			visit.Pathname,
