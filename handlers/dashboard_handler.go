@@ -111,16 +111,52 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
+		// Initialize base query and parameters for filtering
+		baseQuery := fmt.Sprintf(`
+			SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+			FROM visits
+			WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3`, interval)
+		params := []interface{}{domain, start, end}
+		paramIndex := 4
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":    "referrer",
+			"pathname":    "pathname",
+			"device_type": "device_type",
+			"os":          "os",
+			"browser":     "browser",
+			"language":    "language",
+			"country":     "country",
+			"city":        "city",
+			"region":      "region",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				log.Printf("Adding filter - %s: %s", param, value)
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
+			}
+		}
+
+		// Complete the query with grouping and ordering
+		baseQuery += " GROUP BY period ORDER BY period ASC"
+
 		// Goroutine 1: Total visits
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(fmt.Sprintf(`
-				SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
-				FROM visits
-				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-				GROUP BY period
-				ORDER BY period ASC`, interval), domain, start, end)
+			// rows, err := db.Query(fmt.Sprintf(`
+			// 	SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+			// 	FROM visits
+			// 	WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+			// 	GROUP BY period
+			// 	ORDER BY period ASC`, interval), domain, start, end)
+			rows, err := db.Query(baseQuery, params...)
 			if err != nil {
 				log.Println("Error getting total visits:", err)
 				return
@@ -171,15 +207,105 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		}()
 
 		// Goroutine 2: Unique visitors
+		// wg.Add(1)
+		// go func() {
+		// 	defer wg.Done()
+		// 	rows, err := db.Query(fmt.Sprintf(`
+		// 		SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+		// 		FROM visits
+		// 		WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND is_unique = true
+		// 		GROUP BY period
+		// 		ORDER BY period ASC`, interval), domain, start, end)
+		// 	if err != nil {
+		// 		log.Println("Error getting unique visitors:", err)
+		// 		return
+		// 	}
+		// 	defer rows.Close()
+
+		// 	var dataPoints []map[string]interface{}
+		// 	for rows.Next() {
+		// 		var period time.Time
+		// 		var count int
+		// 		err = rows.Scan(&period, &count)
+		// 		if err != nil {
+		// 			log.Println("Error scanning unique visitors:", err)
+		// 			return
+		// 		}
+		// 		dataPoints = append(dataPoints, map[string]interface{}{
+		// 			"period": period.Format(layout),
+		// 			"count":  count,
+		// 		})
+		// 		uniqueVisitorsAggregate += count
+		// 	}
+
+		// 	// Fill in missing periods with zero values
+		// 	for _, p := range periods {
+		// 		found := false
+		// 		for _, dp := range dataPoints {
+		// 			if dp["period"] == p.Format(layout) {
+		// 				found = true
+		// 				break
+		// 			}
+		// 		}
+		// 		if !found {
+		// 			dataPoints = append(dataPoints, map[string]interface{}{
+		// 				"period": p.Format(layout),
+		// 				"count":  0,
+		// 			})
+		// 		}
+		// 	}
+
+		// 	// Sort data points by period
+		// 	sort.Slice(dataPoints, func(i, j int) bool {
+		// 		return dataPoints[i]["period"].(string) < dataPoints[j]["period"].(string)
+		// 	})
+
+		// 	mu.Lock()
+		// 	uniqueVisitors = dataPoints
+		// 	mu.Unlock()
+		// }()
+
+		// Goroutine 2: Unique visitors
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(fmt.Sprintf(`
-				SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
-				FROM visits
-				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND is_unique = true
-				GROUP BY period
-				ORDER BY period ASC`, interval), domain, start, end)
+
+			// Initialize base query and parameters for filtering
+			baseQuery := fmt.Sprintf(`
+		SELECT DATE_TRUNC('%s', timestamp) AS period, COUNT(*) AS count
+		FROM visits
+		WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND is_unique = true`, interval)
+			params := []interface{}{domain, start, end}
+			paramIndex := 4
+
+			// Map query parameter names to column names
+			filters := map[string]string{
+				"referrer":    "referrer",
+				"pathname":    "pathname",
+				"device_type": "device_type",
+				"os":          "os",
+				"browser":     "browser",
+				"language":    "language",
+				"country":     "country",
+				"city":        "city",
+				"region":      "region",
+			}
+
+			// Add filters to the query
+			for param, column := range filters {
+				value := r.URL.Query().Get(param)
+				if value != "" {
+					log.Printf("Adding filter - %s: %s", param, value)
+					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+					params = append(params, value)
+					paramIndex++
+				}
+			}
+
+			// Complete the query with grouping and ordering
+			baseQuery += " GROUP BY period ORDER BY period ASC"
+
+			rows, err := db.Query(baseQuery, params...)
 			if err != nil {
 				log.Println("Error getting unique visitors:", err)
 				return
@@ -229,15 +355,138 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			mu.Unlock()
 		}()
 
+		// // Goroutine 3: Median visit duration
+		// wg.Add(1)
+		// go func() {
+		// 	defer wg.Done()
+		// 	rows, err := db.Query(fmt.Sprintf(`
+		// 		SELECT DATE_TRUNC('%s', timestamp) AS period, time_spent_on_page
+		// 		FROM visits
+		// 		WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+		// 		ORDER BY period ASC`, interval), domain, start, end)
+		// 	if err != nil {
+		// 		log.Println("Error getting median visit duration:", err)
+		// 		return
+		// 	}
+		// 	defer rows.Close()
+
+		// 	periodDurations := make(map[time.Time][]float64)
+		// 	for rows.Next() {
+		// 		var period time.Time
+		// 		var timeSpent float64
+		// 		err = rows.Scan(&period, &timeSpent)
+		// 		if err != nil {
+		// 			log.Println("Error scanning median visit duration:", err)
+		// 			return
+		// 		}
+		// 		periodDurations[period] = append(periodDurations[period], timeSpent)
+		// 	}
+
+		// 	var dataPoints []map[string]interface{}
+		// 	for period, durations := range periodDurations {
+		// 		sort.Float64s(durations)
+		// 		medianIndex := len(durations) / 2
+		// 		var median float64
+		// 		if len(durations)%2 == 0 {
+		// 			median = (durations[medianIndex-1] + durations[medianIndex]) / 2
+		// 		} else {
+		// 			median = durations[medianIndex]
+		// 		}
+
+		// 		// Convert the median time spent to seconds
+		// 		median /= 1000
+
+		// 		// Convert the median time spent to the correct time format
+		// 		var timeFormat string
+		// 		if median < 60 {
+		// 			timeFormat = fmt.Sprintf("%ds", int(median))
+		// 		} else if median < 3600 {
+		// 			minutes := int(median / 60)
+		// 			seconds := int(median) % 60
+		// 			timeFormat = fmt.Sprintf("%dm %ds", minutes, seconds)
+		// 		} else {
+		// 			hours := int(median / 3600)
+		// 			minutes := (int(median) % 3600) / 60
+		// 			seconds := int(median) % 60
+		// 			timeFormat = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+		// 		}
+
+		// 		dataPoints = append(dataPoints, map[string]interface{}{
+		// 			"period":          period.Format(layout),
+		// 			"medianTimeSpent": timeFormat,
+		// 		})
+		// 		medianVisitDurationAggregate += median
+		// 		visitPeriodsCount++
+		// 	}
+
+		// 	// Fill in missing periods with zero seconds values
+		// 	for _, p := range periods {
+		// 		found := false
+		// 		for _, dp := range dataPoints {
+		// 			if dp["period"] == p.Format(layout) {
+		// 				found = true
+		// 				break
+		// 			}
+		// 		}
+		// 		if !found {
+		// 			dataPoints = append(dataPoints, map[string]interface{}{
+		// 				"period":          p.Format(layout),
+		// 				"medianTimeSpent": "0s",
+		// 			})
+		// 		}
+		// 	}
+
+		// 	// Sort data points by period
+		// 	sort.Slice(dataPoints, func(i, j int) bool {
+		// 		return dataPoints[i]["period"].(string) < dataPoints[j]["period"].(string)
+		// 	})
+
+		// 	mu.Lock()
+		// 	medianVisitDuration = dataPoints
+		// 	mu.Unlock()
+		// }()
+
 		// Goroutine 3: Median visit duration
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rows, err := db.Query(fmt.Sprintf(`
-				SELECT DATE_TRUNC('%s', timestamp) AS period, time_spent_on_page
-				FROM visits
-				WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
-				ORDER BY period ASC`, interval), domain, start, end)
+
+			// Initialize base query and parameters for filtering
+			baseQuery := fmt.Sprintf(`
+		SELECT DATE_TRUNC('%s', timestamp) AS period, time_spent_on_page
+		FROM visits
+		WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3`, interval)
+			params := []interface{}{domain, start, end}
+			paramIndex := 4
+
+			// Map query parameter names to column names
+			filters := map[string]string{
+				"referrer":    "referrer",
+				"pathname":    "pathname",
+				"device_type": "device_type",
+				"os":          "os",
+				"browser":     "browser",
+				"language":    "language",
+				"country":     "country",
+				"city":        "city",
+				"region":      "region",
+			}
+
+			// Add filters to the query
+			for param, column := range filters {
+				value := r.URL.Query().Get(param)
+				if value != "" {
+					log.Printf("Adding filter - %s: %s", param, value)
+					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+					params = append(params, value)
+					paramIndex++
+				}
+			}
+
+			// Complete the query with ordering
+			baseQuery += " ORDER BY period ASC"
+
+			rows, err := db.Query(baseQuery, params...)
 			if err != nil {
 				log.Println("Error getting median visit duration:", err)
 				return
