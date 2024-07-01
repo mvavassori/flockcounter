@@ -6,42 +6,44 @@ function trackDownload(event) {
   console.log(`Download initiated: ${link.href}`);
 
   const eventData = {
+    type: "download",
     timestamp: new Date().toISOString(),
     referrer: document.referrer || null,
     url: window.location.href,
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
+    goal: link.href,
   };
-  console.log("Event data download", eventData);
-  sendEventData("download", eventData);
+  sendEventData(eventData);
 }
 
-// Function to track outbound links// Function to track outbound links
+// function to track outbound links
 function trackOutboundLink(event) {
   const link = event.currentTarget;
   console.log(`Outbound link clicked: ${link.href}`);
 
   const eventData = {
+    type: "outbound_link",
     timestamp: new Date().toISOString(),
     referrer: document.referrer || null,
     url: window.location.href,
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
+    goal: link.href,
   };
-  console.log("Event data outbound", eventData);
-  sendEventData("outbound_link", eventData);
+  sendEventData(eventData);
 }
 
-function sendEventData(eventType, eventData) {
-  console.log({ eventType, eventData });
+function sendEventData(eventData) {
+  console.log(eventData);
   // fetch(url, {
   //   method: "POST",
   //   headers: {
   //     "Content-Type": "application/json",
   //   },
-  //   body: JSON.stringify({ eventType, eventData }),
+  //   body: JSON.stringify({ eventData }),
   // })
   //   .then((response) => {
   //     if (response.ok) {

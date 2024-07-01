@@ -2,12 +2,13 @@ package models
 
 import "time"
 
-// todo not defintive
+// todo: we have to track the goal.
 type Event struct {
 	ID            int64     `json:"id"`
 	WebsiteID     int64     `json:"websiteId"`
 	WebsiteDomain string    `json:"websiteDomain"`
-	EventType     string    `json:"eventType"`
+	Type          string    `json:"type"`
+	Goal          string    `json:"goal"`
 	Timestamp     time.Time `json:"timestamp"`
 	Referrer      string    `json:"referrer"`
 	URL           string    `json:"url"`
@@ -23,7 +24,8 @@ type Event struct {
 }
 
 type EventReceiver struct {
-	EventType string    `json:"eventType"`
+	Type      string    `json:"type"`
+	Goal      string    `json:"goal"`
 	Timestamp time.Time `json:"timestamp"`
 	Referrer  string    `json:"referrer"`
 	URL       string    `json:"url"`
@@ -35,7 +37,8 @@ type EventReceiver struct {
 type EventInsert struct {
 	WebsiteID     int64     `json:"websiteId"`
 	WebsiteDomain string    `json:"websiteDomain"`
-	EventType     string    `json:"eventType"`
+	Type          string    `json:"type"`
+	Goal          string    `json:"goal"`
 	Timestamp     time.Time `json:"timestamp"`
 	Referrer      string    `json:"referrer"`
 	URL           string    `json:"url"`

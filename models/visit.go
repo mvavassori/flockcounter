@@ -32,7 +32,7 @@ type VisitReceiver struct {
 }
 
 type VisitInsert struct {
-	WebsiteID       int       `json:"websiteId"` // Foreign key to Website model
+	WebsiteID       int       `json:"websiteId"` // todo: check if this is necessary
 	WebsiteDomain   string    `json:"websiteDomain"`
 	Timestamp       time.Time `json:"timestamp"`
 	Referrer        string    `json:"referrer"`
