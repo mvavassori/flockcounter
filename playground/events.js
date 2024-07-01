@@ -21,33 +21,38 @@ function trackDownload(event) {
 function trackOutboundLink(event) {
   const link = event.currentTarget;
   console.log(`Outbound link clicked: ${link.href}`);
+
   const eventData = {
-    href: link.href,
     timestamp: new Date().toISOString(),
+    referrer: document.referrer || null,
+    url: window.location.href,
+    pathname: window.location.pathname,
     userAgent: navigator.userAgent,
+    language: navigator.language,
   };
   console.log("Event data outbound", eventData);
   sendEventData("outbound_link", eventData);
 }
 
 function sendEventData(eventType, eventData) {
-  fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ eventType, eventData }),
-  })
-    .then((response) => {
-      if (response.ok) {
-        console.log("Event sent successfully");
-      } else {
-        console.error("Failed to send event");
-      }
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+  console.log({ eventType, eventData });
+  // fetch(url, {
+  //   method: "POST",
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //   },
+  //   body: JSON.stringify({ eventType, eventData }),
+  // })
+  //   .then((response) => {
+  //     if (response.ok) {
+  //       console.log("Event sent successfully");
+  //     } else {
+  //       console.error("Failed to send event");
+  //     }
+  //   })
+  //   .catch((error) => {
+  //     console.error("Error:", error);
+  //   });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

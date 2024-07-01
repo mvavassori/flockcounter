@@ -22,3 +22,5 @@ go.work
 
 # Air output folder
 /tmp
+
+*.pdf

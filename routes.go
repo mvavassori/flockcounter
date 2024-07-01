@@ -56,7 +56,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 
 	// events route
 	router.Handle("/api/events/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetEvents(db))).Methods("GET")
-	router.HandleFunc("/api/event", handlers.CreateEvent(db)).Methods("POST")
+	router.Handle("/api/event{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.CreateEvent(db))).Methods("POST")
 
 	return router
 }
