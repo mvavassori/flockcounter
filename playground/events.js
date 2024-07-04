@@ -1,5 +1,4 @@
-// ! just for testing purposes, it should be added to the base script.go if the user needs to track events.
-const url = "http://localhost:8080/api/event";
+const url = "http://localhost:8080/api/event"; // todo: change to production url
 
 function trackDownload(event) {
   const link = event.currentTarget;
@@ -18,13 +17,29 @@ function trackDownload(event) {
   sendEventData(eventData);
 }
 
-// function to track outbound links
 function trackOutboundLink(event) {
   const link = event.currentTarget;
   console.log(`Outbound link clicked: ${link.href}`);
 
   const eventData = {
     type: "outbound_link",
+    timestamp: new Date().toISOString(),
+    referrer: document.referrer || null,
+    url: window.location.href,
+    pathname: window.location.pathname,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    goal: link.href,
+  };
+  sendEventData(eventData);
+}
+
+function trackMailtoLink(event) {
+  const link = event.currentTarget;
+  console.log(`Mailto link clicked: ${link.href}`);
+
+  const eventData = {
+    type: "mailto_link",
     timestamp: new Date().toISOString(),
     referrer: document.referrer || null,
     url: window.location.href,
@@ -72,5 +87,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (url.origin !== window.location.origin) {
       link.addEventListener("click", trackOutboundLink);
     }
+  });
+
+  // Attach event listeners to mailto links
+  const mailtoLinks = document.querySelectorAll('a[href^="mailto:"]');
+  mailtoLinks.forEach((link) => {
+    link.addEventListener("click", trackMailtoLink);
   });
 });
