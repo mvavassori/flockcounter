@@ -277,7 +277,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Generate a unique identifier
-		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent) // todo
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent) // todo: change to ip address variable later
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -336,7 +336,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		_, err = db.Exec(insertQuery,
 			websiteId,
 			domain,
-			// time.Now(),
 			visit.Timestamp,
 			visit.Referrer,
 			visit.URL,

@@ -74,6 +74,7 @@ type dailySalt struct {
 	date time.Time
 }
 
+// Stored in memory
 var dailySaltCache = make(map[string]dailySalt)
 
 // getDailySalt generates a random 16-byte salt

@@ -141,6 +141,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		domain := url.Hostname()
 		fmt.Println(domain)
 
@@ -171,9 +172,48 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 		}
 
 		// todo: check isUnique
+		// Generate daily salt or grab from cache if already generated
+		dailySalt, err := utils.GenerateDailySalt()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// Generate a unique identifier
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", eventReceiver.UserAgent) // todo: change to ip address variable later
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println(uniqueIdentifier)
+
+		// Check if the unique identifier exists in the daily_unique_identifiers table
+		var isUnique bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
+		if err != nil {
+			log.Println("Error checking for existing unique identifier", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Update the IsUnique field based on whether the unique identifier exists
+		if isUnique {
+			isUnique = false
+		} else {
+			// Add the unique identifier to the daily_unique_identifiers table
+			_, err := db.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
+			if err != nil {
+				log.Println("Error inserting unique identifier", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			isUnique = true
+		}
 
 		event := models.EventInsert{
 			Type:       eventReceiver.Type,
+			Goal:       eventReceiver.Goal,
 			Timestamp:  eventReceiver.Timestamp,
 			Referrer:   referrerWithoutProtocol,
 			URL:        eventReceiver.URL,
@@ -185,12 +225,49 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			Country:    country,
 			Region:     region,
 			City:       city,
-			IsUnique:   true, // todo: check isUnique
+			IsUnique:   isUnique,
 		}
 
 		fmt.Println(event)
 
 		// perform the INSERT query to insert the event into the database
+		insertQuery := `
+			INSERT INTO events 
+				(website_id, website_domain, type, goal, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique)
+			VALUES
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		`
 
+		_, err = db.Exec(insertQuery,
+			websiteId,
+			domain,
+			event.Type,
+			event.Goal,
+			event.Timestamp,
+			event.Referrer,
+			event.URL,
+			event.Pathname,
+			event.DeviceType,
+			event.OS,
+			event.Browser,
+			event.Language,
+			event.Country,
+			event.Region,
+			event.City,
+			event.IsUnique,
+		)
+		if err != nil {
+			log.Println("Error inserting event", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
 	}
 }
+
+// todo: add a get event handler
+
+// todo: add an update event handler
+
+// todo: add a delete event handler
