@@ -1,3 +1,5 @@
+// todo check if the referrer works properly on SPAs
+// todo check if the links get triggered on SPAs
 const url = "http://localhost:8080/api/event"; // todo: change to production url
 
 function trackDownload(event) {
@@ -12,14 +14,18 @@ function trackDownload(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    goal: link.href,
+    name: `Download ${link.getAttribute("download")}`,
   };
   sendEventData(eventData);
 }
 
 function trackOutboundLink(event) {
   const link = event.currentTarget;
+
   console.log(`Outbound link clicked: ${link.href}`);
+
+  const strippedUrl = link.href.replace(/(^\w+:|^)\/\//, ""); // Remove protocol
+  console.log(`Outbound link clicked: ${strippedUrl}`);
 
   const eventData = {
     type: "outbound_link",
@@ -29,7 +35,7 @@ function trackOutboundLink(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    goal: link.href,
+    name: `Outbound link ${link.href}`,
   };
   sendEventData(eventData);
 }
@@ -46,7 +52,7 @@ function trackMailtoLink(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    goal: link.href,
+    name: `Mailto link ${link.href}`,
   };
   sendEventData(eventData);
 }

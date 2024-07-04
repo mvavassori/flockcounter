@@ -24,7 +24,7 @@ func MakeEvent(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// todo: Will be displayed in the dashboard or a dedicated different section/page
+// Will be displayed in the dashboard or a dedicated different section/page
 func GetEvents(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// extract the value id from the url
@@ -213,7 +213,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 
 		event := models.EventInsert{
 			Type:       eventReceiver.Type,
-			Goal:       eventReceiver.Goal,
+			Name:       eventReceiver.Name,
 			Timestamp:  eventReceiver.Timestamp,
 			Referrer:   referrerWithoutProtocol,
 			URL:        eventReceiver.URL,
@@ -230,10 +230,11 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 
 		fmt.Println(event)
 
+		// todo: create the TABLE in postgres
 		// perform the INSERT query to insert the event into the database
 		insertQuery := `
 			INSERT INTO events 
-				(website_id, website_domain, type, goal, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique)
+				(website_id, website_domain, type, name, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique)
 			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		`
@@ -242,7 +243,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			websiteId,
 			domain,
 			event.Type,
-			event.Goal,
+			event.Name,
 			event.Timestamp,
 			event.Referrer,
 			event.URL,
