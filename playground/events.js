@@ -2,9 +2,27 @@
 // todo check if the links get triggered on SPAs
 const url = "http://localhost:8080/api/event"; // todo: change to production url
 
+// Helper function to format goal names
+function formatGoal(goal) {
+  // Remove protocol
+  goal = goal.replace(/(^\w+:|^)\/\//, "");
+
+  // Remove trailing slashes
+  goal = goal.replace(/\/$/, "");
+
+  // Replace special characters with underscores
+  goal = goal.replace(/[^\w\s]/g, "_");
+
+  // Remove leading and trailing underscores
+  goal = goal.replace(/^_+|_+$/g, "");
+
+  return goal;
+}
+
 function trackDownload(event) {
   const link = event.currentTarget;
-  console.log(`Download initiated: ${link.href}`);
+  const formattedGoal = formatGoal(link.getAttribute("download") || link.href);
+  console.log(`Download initiated: ${formattedGoal}`);
 
   const eventData = {
     type: "download",
@@ -14,18 +32,15 @@ function trackDownload(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    name: `Download ${link.getAttribute("download")}`,
+    name: `download_${formattedGoal}`,
   };
   sendEventData(eventData);
 }
 
 function trackOutboundLink(event) {
   const link = event.currentTarget;
-
-  console.log(`Outbound link clicked: ${link.href}`);
-
-  const strippedUrl = link.href.replace(/(^\w+:|^)\/\//, ""); // Remove protocol
-  console.log(`Outbound link clicked: ${strippedUrl}`);
+  const formattedGoal = formatGoal(link.href);
+  console.log(`Outbound link clicked: ${formattedGoal}`);
 
   const eventData = {
     type: "outbound_link",
@@ -35,14 +50,15 @@ function trackOutboundLink(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    name: `Outbound link ${link.href}`,
+    name: `outbound_${formattedGoal}`,
   };
   sendEventData(eventData);
 }
 
 function trackMailtoLink(event) {
   const link = event.currentTarget;
-  console.log(`Mailto link clicked: ${link.href}`);
+  const formattedGoal = formatGoal(link.href.replace("mailto:", ""));
+  console.log(`Mailto link clicked: ${formattedGoal}`);
 
   const eventData = {
     type: "mailto_link",
@@ -52,7 +68,7 @@ function trackMailtoLink(event) {
     pathname: window.location.pathname,
     userAgent: navigator.userAgent,
     language: navigator.language,
-    name: `Mailto link ${link.href}`,
+    name: `mailto_${formattedGoal}`,
   };
   sendEventData(eventData);
 }
