@@ -148,17 +148,20 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 		// extract the referrer
 		referrer := eventReceiver.Referrer
 
-		// remove the protocol from the referrer
-		u, err := url.Parse(referrer)
-		if err != nil {
-			log.Println("Error parsing referrer", err)
-			http.Error(w, "Invalid referrer format", http.StatusBadRequest)
-			return
+		// Check if the referrer is empty or null
+		if referrer == "" {
+			referrer = "Direct"
+		} else {
+			// Remove the protocol from the referrer
+			referrerURL, err := url.Parse(referrer)
+			if err != nil {
+				log.Println("Error parsing referrer:", err)
+				http.Error(w, "Invalid referrer format", http.StatusBadRequest)
+				return
+			}
+
+			referrer = referrerURL.Host + referrerURL.Path
 		}
-
-		referrerWithoutProtocol := u.Host + u.Path
-
-		fmt.Println("referrerWithoutProtocol", referrerWithoutProtocol)
 
 		fmt.Println("Frontend sent: ", eventReceiver)
 
@@ -215,7 +218,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			Type:       eventReceiver.Type,
 			Name:       eventReceiver.Name,
 			Timestamp:  eventReceiver.Timestamp,
-			Referrer:   referrerWithoutProtocol,
+			Referrer:   referrer,
 			URL:        eventReceiver.URL,
 			Pathname:   eventReceiver.Pathname,
 			DeviceType: utils.GetDeviceType(&ua),

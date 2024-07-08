@@ -246,17 +246,20 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// extract the referrer
 		referrer := visitReceiver.Referrer
 
-		// remove the protocol from the referrer
-		u, err := url.Parse(referrer)
-		if err != nil {
-			log.Println("Error parsing referrer", err)
-			http.Error(w, "Invalid referrer format", http.StatusBadRequest)
-			return
+		// Check if the referrer is empty or null
+		if referrer == "" {
+			referrer = "Direct"
+		} else {
+			// Remove the protocol from the referrer
+			referrerURL, err := url.Parse(referrer)
+			if err != nil {
+				log.Println("Error parsing referrer:", err)
+				http.Error(w, "Invalid referrer format", http.StatusBadRequest)
+				return
+			}
+
+			referrer = referrerURL.Host + referrerURL.Path
 		}
-
-		referrerWithoutProtocol := u.Host + u.Path
-
-		fmt.Println("referrerWithoutProtocol", referrerWithoutProtocol)
 
 		fmt.Println("Frontend sent: ", visitReceiver)
 
@@ -310,9 +313,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
-			Timestamp: visitReceiver.Timestamp,
-			// Referrer:        visitReceiver.Referrer,
-			Referrer:        referrerWithoutProtocol,
+			Timestamp:       visitReceiver.Timestamp,
+			Referrer:        referrer,
 			URL:             visitReceiver.URL,
 			Pathname:        visitReceiver.Pathname,
 			DeviceType:      utils.GetDeviceType(&ua),

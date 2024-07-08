@@ -4,7 +4,7 @@ import "time"
 
 type Event struct {
 	ID            int64     `json:"id"`
-	WebsiteID     int64     `json:"websiteId"`
+	WebsiteID     int64     `json:"websiteId"` // Foreign key to Website model
 	WebsiteDomain string    `json:"websiteDomain"`
 	Type          string    `json:"type"`
 	Name          string    `json:"name"`
