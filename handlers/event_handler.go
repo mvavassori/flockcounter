@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mileusna/useragent"
 	"github.com/mvavassori/bare-analytics/utils"
@@ -45,9 +46,69 @@ func GetEvents(db *sql.DB) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusBadRequest)
 			return
 		}
+
+		// Extract start and end dates from the request query parameters
+		startDate := r.URL.Query().Get("startDate")
+		endDate := r.URL.Query().Get("endDate")
+
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Query the database for events within the specified date range
+		query := `
+			SELECT name, COUNT(*) as counts
+			FROM events
+			WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3
+			GROUP BY name
+		`
+
+		rows, err := db.Query(query, domain, start, end)
+		if err != nil {
+			log.Println("Error querying events:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Convert the statistics to JSON
+		defer rows.Close() // Close the result set after we're done with it
+		var eventName string
+		var count int
+		var eventNames []string
+		var counts []int
+		for rows.Next() {
+			err = rows.Scan(&eventName, &count)
+			if err != nil {
+				log.Println("Error scanning statistics:", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			eventNames = append(eventNames, eventName)
+			counts = append(counts, count)
+		}
+		jsonStats, err := json.Marshal(map[string]interface{}{
+			"eventNames": eventNames,
+			"counts":     counts,
+		})
+		if err != nil {
+			log.Println("Error marshalling statistics:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonStats)
+		// here i should return back three main metrics: total people who have completed the goal, unique people who have completed the goal, and Conversion rate is calculated as the number of unique visitors who have achieved the goal divided by the total number of unique visitors to the website
 	}
 
-	// here i should return back three main metrics: total people who have completed the goal, unique people who have completed the goal, and Conversion rate is calculated as the number of unique visitors who have achieved the goal divided by the total number of unique visitors to the website
 }
 
 //? GetEvent <- should i add also a way to display data for a single event?
