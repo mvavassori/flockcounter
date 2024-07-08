@@ -80,7 +80,7 @@ function sendEventData(eventData) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ eventData }),
+    body: JSON.stringify(eventData),
   })
     .then((response) => {
       if (response.ok) {

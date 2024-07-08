@@ -55,6 +55,15 @@ func GetEvents(db *sql.DB) http.HandlerFunc {
 func CreateEvent(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		// // return the entire body of the request in a readable format for testing purposes
+		// body, err := io.ReadAll(r.Body)
+		// if err != nil {
+		// 	log.Println("Error reading request body:", err)
+		// 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		// 	return
+		// }
+		// fmt.Println("Request body:", string(body))
+
 		// todo
 		// //Get IP address
 		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -134,7 +143,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 
 		ua := useragent.Parse(eventReceiver.UserAgent)
 
-		fmt.Println(ua)
+		fmt.Println("ua", ua)
 
 		url, err := url.Parse(eventReceiver.URL)
 		if err != nil {
