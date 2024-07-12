@@ -22,6 +22,21 @@
       </li>
     </ul>
 
+    <!-- Add your custom event tracking code here -->
+    <button class="data-event-name=custom_event_1">Custom Event 1</button>
+    <button class="data-event-name=custom_event_2">Custom Event 2</button>
+
+    <!-- add a form to track form submissions -->
+    <form
+      action="https://example.com/submit"
+      method="post"
+      class="data-event-name=form_submission"
+    >
+      <input type="text" name="name" placeholder="Name" />
+      <input type="email" name="email" placeholder="Email" />
+      <button type="submit">Submit</button>
+    </form>
+
     <script src="events.js" crossorigin></script>
   </body>
 </html>

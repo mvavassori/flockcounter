@@ -73,6 +73,20 @@ function trackMailtoLink(event) {
   sendEventData(eventData);
 }
 
+function trackCustomEvent(eventName) {
+  const eventData = {
+    type: "custom_event",
+    timestamp: new Date().toISOString(),
+    referrer: document.referrer || null,
+    url: window.location.href,
+    pathname: window.location.pathname,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    name: eventName,
+  };
+  sendEventData(eventData);
+}
+
 function sendEventData(eventData) {
   console.log(eventData);
   fetch(url, {
@@ -115,5 +129,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const mailtoLinks = document.querySelectorAll('a[href^="mailto:"]');
   mailtoLinks.forEach((link) => {
     link.addEventListener("click", trackMailtoLink);
+  });
+
+  // get class elements that will be used to track events
+  const elements = document.querySelectorAll('[class*="data-event-name="]');
+  elements.forEach((element) => {
+    // Extract the event name from the class
+    const classList = element.className.split(" ");
+    let eventName = "";
+    classList.forEach((cls) => {
+      if (cls.startsWith("data-event-name=")) {
+        eventName = cls.split("=")[1];
+      }
+    });
+
+    // Determine the event type based on the element type
+    let eventType = "click"; // Default event type
+    if (element.tagName.toLowerCase() === "form") {
+      eventType = "submit";
+    }
+
+    element.addEventListener(eventType, (event) => {
+      // Prevent default form submission
+      if (eventType === "submit") {
+        event.preventDefault();
+      }
+
+      // Track the event
+      trackCustomEvent(eventName);
+    });
   });
 });
