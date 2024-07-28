@@ -54,8 +54,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/dashboard/regions/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetRegions(db))).Methods("GET")
 	router.Handle("/api/dashboard/cities/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetCities(db))).Methods("GET")
 
-	// events route
-	// todo: add MakeEvent to let website owners create custom events
+	// events routes
 	router.Handle("/api/events/{domain}", middleware.AdminOrUserWebsiteMiddleware(db)(handlers.GetEvents(db))).Methods("GET")
 	router.HandleFunc("/api/event", handlers.CreateEvent(db)).Methods("POST")
 
