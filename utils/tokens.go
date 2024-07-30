@@ -38,13 +38,18 @@ func ValidateToken(tokenString string) (*jwt.Token, error) {
 func CreateAccessToken(userID int, role string, name string, email string) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
+
+	// todo go back to the commented code
+	// time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
+	expirationTime := time.Now().Add(time.Second * 10).Unix()
+
 	// Create the Claims
 	claims := &jwt.MapClaims{
 		"userId":    userID,
 		"role":      role,
 		"name":      name,
 		"email":     email,
-		"expiresAt": time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
+		"expiresAt": expirationTime,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -54,10 +59,15 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 func CreateRefreshToken(userID int) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
+
+	// todo go back to the commented code
+	// time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
+	expirationTime := time.Now().Add(time.Second * 15).Unix()
+
 	// Create the Claims
 	claims := &jwt.MapClaims{
 		"userId":    userID,
-		"expiresAt": time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
+		"expiresAt": expirationTime,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

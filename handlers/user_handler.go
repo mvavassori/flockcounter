@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/mvavassori/bare-analytics/middleware"
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/utils"
 	"golang.org/x/crypto/bcrypt"
@@ -389,8 +388,14 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// refreshTokenExpirationTime := time.Now().Add(time.Hour * 24 * 7)
+		refreshTokenExpirationTime := time.Now().Add(time.Second * 15) // without Unix() because postgres expects a timestamp or datetime format
+
+		// accessTokenExpirationTime := time.Now().Add(time.Minute * 15).Unix()
+		accessTokenExpirationTime := time.Now().Add(time.Second * 10).Unix()
+
 		// Store the refresh token in the database
-		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, time.Now().Add(time.Hour*24*7))
+		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, refreshTokenExpirationTime)
 		if err != nil {
 			log.Println("Error storing refresh token:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -400,7 +405,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		backendTokens := map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
-			"expiresAt":    time.Now().Add(time.Second * 15).Unix(),
+			"expiresAt":    accessTokenExpirationTime,
 		}
 
 		userData := map[string]interface{}{
@@ -478,8 +483,6 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Error creating access token", http.StatusInternalServerError)
 			return
 		}
-
-		// accessToken = fmt.Sprintf(`{"accessToken": "%s"}`, accessToken)
 
 		// interface{} means we can use any type
 		data := map[string]interface{}{
