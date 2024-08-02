@@ -150,3 +150,23 @@ func SortByPeriod(slice []map[string]interface{}, interval string) {
 		return t1.Before(t2)
 	})
 }
+
+type ExpirationTime struct {
+	duration time.Duration
+}
+
+func NewExpirationTime(d time.Duration) ExpirationTime {
+	return ExpirationTime{duration: d}
+}
+
+func (e ExpirationTime) Unix() int64 {
+	return time.Now().Add(e.duration).Unix()
+}
+
+func (e ExpirationTime) Time() time.Time {
+	return time.Now().Add(e.duration)
+}
+
+func (e ExpirationTime) Duration() time.Duration {
+	return e.duration
+}

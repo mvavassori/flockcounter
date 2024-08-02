@@ -7,6 +7,14 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
+var (
+	AccessTokenExpiration = NewExpirationTime(10 * time.Second) // for testing
+	// AccessTokenExpiration  = NewExpirationTime(15 * time.Minute)
+
+	// RefreshTokenExpiration = NewExpirationTime(15 * time.Second) // for testing
+	RefreshTokenExpiration = NewExpirationTime(14 * 24 * time.Hour)
+)
+
 func ValidateToken(tokenString string) (*jwt.Token, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
@@ -39,9 +47,8 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 	//todo get secret from env
 	secret := "my_secret_key"
 
-	// todo go back to the commented code
-	// time.Now().Add(time.Minute * 15).Unix(), // 15 minutes
-	expirationTime := time.Now().Add(time.Second * 10).Unix()
+	//expirationTime := time.Now().Add(time.Minute * 15).Unix() // 15 minutes
+	// expirationTime := time.Now().Add(time.Second * 10).Unix() // for debugging
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
@@ -49,7 +56,7 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 		"role":      role,
 		"name":      name,
 		"email":     email,
-		"expiresAt": expirationTime,
+		"expiresAt": AccessTokenExpiration.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -60,14 +67,13 @@ func CreateRefreshToken(userID int) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
 
-	// todo go back to the commented code
-	// time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
-	expirationTime := time.Now().Add(time.Second * 15).Unix()
+	// expirationTime := time.Now().Add(time.Hour * 24 * 14).Unix() // 14 days
+	// expirationTime := time.Now().Add(time.Second * 15).Unix() // for debugging
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
 		"userId":    userID,
-		"expiresAt": expirationTime,
+		"expiresAt": RefreshTokenExpiration.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -388,14 +388,17 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// todo go back to the correct expiration times
+		// without Unix() because postgres expects a timestamp or datetime format
 		// refreshTokenExpirationTime := time.Now().Add(time.Hour * 24 * 7)
-		refreshTokenExpirationTime := time.Now().Add(time.Second * 15) // without Unix() because postgres expects a timestamp or datetime format
+		// refreshTokenExpirationTime := time.Now().Add(time.Second * 15) // for testing
 
 		// accessTokenExpirationTime := time.Now().Add(time.Minute * 15).Unix()
-		accessTokenExpirationTime := time.Now().Add(time.Second * 10).Unix()
+		//accessTokenExpirationTime := time.Now().Add(time.Second * 10).Unix() // for testing
+		// accessTokenExpirationTime := time.Now().Add(time.Minute * 1).Unix()	// for testing
 
 		// Store the refresh token in the database
-		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, refreshTokenExpirationTime)
+		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, utils.RefreshTokenExpiration.Time())
 		if err != nil {
 			log.Println("Error storing refresh token:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -405,7 +408,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		backendTokens := map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
-			"expiresAt":    accessTokenExpirationTime,
+			"expiresAt":    utils.AccessTokenExpiration.Unix(),
 		}
 
 		userData := map[string]interface{}{
@@ -484,11 +487,15 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// todo go back to the correct expiration times
+		// newtokenExpirationTime := time.Now().Add(time.Minute * 15).Unix()
+		newtokenExpirationTime := time.Now().Add(time.Second * 10).Unix()
+
 		// interface{} means we can use any type
 		data := map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
-			"expiresAt":    time.Now().Add(time.Minute * 15).Unix(),
+			"expiresAt":    newtokenExpirationTime,
 		}
 
 		response, err := json.Marshal(data)
