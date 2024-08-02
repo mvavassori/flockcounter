@@ -160,11 +160,11 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			log.Fatal("Error getting home directory:", err)
 		}
 
-		fmt.Println("Home directory:", homeDir)
+		// fmt.Println("Home directory:", homeDir)
 		// Construct full path to GeoLite2-City.mmdb file
 		dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
 
-		fmt.Println("Database path:", dbPath)
+		// fmt.Println("Database path:", dbPath)
 
 		geoip2DB, err := geoip2.Open(dbPath)
 		if err != nil {
@@ -183,7 +183,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Println("Parsed IP:", parsedIP)
+		// fmt.Println("Parsed IP:", parsedIP)
 
 		record, err := geoip2DB.City(parsedIP)
 		if err != nil {
@@ -215,9 +215,9 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Print location information
-		fmt.Println("Country:", country)
-		fmt.Println("Region:", region)
-		fmt.Println("City:", city)
+		// fmt.Println("Country:", country)
+		// fmt.Println("Region:", region)
+		// fmt.Println("City:", city)
 
 		// Create a VisitReceiver struct to hold the request data
 		var visitReceiver models.VisitReceiver
@@ -241,7 +241,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		domain := url.Hostname()
 
-		fmt.Println(domain)
+		// fmt.Println(domain)
 
 		// extract the referrer
 		referrer := visitReceiver.Referrer
@@ -261,7 +261,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			referrer = referrerURL.Host + referrerURL.Path
 		}
 
-		fmt.Println("Frontend sent: ", visitReceiver)
+		// fmt.Println("Frontend sent: ", visitReceiver)
 
 		// Look up the websiteId using the domain
 		var websiteId int
@@ -286,7 +286,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		fmt.Println(uniqueIdentifier)
+		// fmt.Println(uniqueIdentifier)
 
 		// Check if the unique identifier exists in the daily_unique_identifiers table
 		var isUnique bool

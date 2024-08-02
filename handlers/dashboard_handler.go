@@ -865,8 +865,8 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		params = append(params, limit, offset)
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -998,8 +998,8 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 		baseQuery += " GROUP BY device_type ORDER BY COUNT(*) DESC"
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1113,8 +1113,8 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		baseQuery += " GROUP BY os ORDER BY COUNT(*) DESC"
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1228,8 +1228,8 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		baseQuery += " GROUP BY browser ORDER BY COUNT(*) DESC"
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1354,8 +1354,8 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		params = append(params, limit, offset)
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1480,8 +1480,8 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		params = append(params, limit, offset)
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1606,8 +1606,8 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 		params = append(params, limit, offset)
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1732,8 +1732,8 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		params = append(params, limit, offset)
 
 		// Print the final query and parameters
-		log.Printf("Executing query: %s", baseQuery)
-		log.Printf("With parameters: %v", params)
+		// log.Printf("Executing query: %s", baseQuery)
+		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
