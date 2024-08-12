@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	// "strings"
-
 	// "math"
 	"net/http"
 	// "net/url"
@@ -833,6 +832,7 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 
 		// Initialize query and parameters
 		baseQuery := "SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		countQuery := "SELECT COUNT(DISTINCT referrer) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
 		params := []interface{}{domain, start, end}
 		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
 
@@ -853,66 +853,80 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value) // Add the filter value to the parameters list
+				paramIndex++                   // Increment the parameter index for the next filter
 			}
 		}
 
-		// Complete the query
-		baseQuery += fmt.Sprintf(" GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
-		params = append(params, limit, offset)
+		// Complete the queryies
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
+		var wg sync.WaitGroup
+		var totalCount int
+		var referrers []string
+		var counts []int
+		var countErr, dataErr error
 
-		// Query the database for statistics
-		stats, err := db.Query(baseQuery, params...)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var referrer string
+				var count int
+				if err := rows.Scan(&referrer, &count); err != nil {
+					dataErr = err
+					return
+				}
+				referrers = append(referrers, referrer)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting referrer data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// // Query the database for statistics
-		// stats, err := db.Query("SELECT referrer, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT $4 OFFSET $5", domain, start, end, limit, offset)
-		// if err != nil {
-		// 	log.Println("Error getting website statistics:", err)
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
-
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var referrer string
-		var count int
-		var referrers []string
-		var counts []int
-		for stats.Next() {
-			err = stats.Scan(&referrer, &count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			// // Leave out the http:// or https:// part from the referrer url
-			// u, err := url.Parse(referrer)
-			// if err != nil {
-			// 	log.Println("Error parsing referrer URL:", err)
-			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-			// 	return
-			// }
-			// referrerWithoutProtocol := u.Host + u.Path
-
-			referrers = append(referrers, referrer)
-			counts = append(counts, count)
-		}
-
+		// Prepare and send the JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"referrers": referrers,
-			"counts":    counts,
+			"referrers":  referrers,
+			"counts":     counts,
+			"totalCount": totalCount,
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
@@ -996,10 +1010,6 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 
 		// Complete the query
 		baseQuery += " GROUP BY device_type ORDER BY COUNT(*) DESC"
-
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
 
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
@@ -1112,10 +1122,6 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		// Complete the query
 		baseQuery += " GROUP BY os ORDER BY COUNT(*) DESC"
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
-
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
@@ -1227,10 +1233,6 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		// Complete the query
 		baseQuery += " GROUP BY browser ORDER BY COUNT(*) DESC"
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
-
 		// Query the database for statistics
 		stats, err := db.Query(baseQuery, params...)
 		if err != nil {
@@ -1322,6 +1324,7 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 
 		// Initialize query and parameters
 		baseQuery := "SELECT language, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		countQuery := "SELECT COUNT(DISTINCT language) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
 		params := []interface{}{domain, start, end}
 		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
 
@@ -1342,48 +1345,80 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value) // Add the filter value to the parameters list
+				paramIndex++                   // Increment the parameter index for the next filter
 			}
 		}
 
 		// Complete the query
-		baseQuery += fmt.Sprintf(" GROUP BY language ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
-		params = append(params, limit, offset)
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY language ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
+		var wg sync.WaitGroup
+		var totalCount int
+		var languages []string
+		var counts []int
+		var countErr, dataErr error
 
-		// Query the database for statistics
-		stats, err := db.Query(baseQuery, params...)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var language string
+				var count int
+				if err := rows.Scan(&language, &count); err != nil {
+					dataErr = err
+					return
+				}
+				languages = append(languages, language)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting language data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var language string
-		var count int
-		var languages []string
-		var counts []int
-		for stats.Next() {
-			err = stats.Scan(&language, &count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			languages = append(languages, language)
-			counts = append(counts, count)
-		}
+		// Prepare and send the JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"languages": languages,
-			"counts":    counts,
+			"languages":  languages,
+			"counts":     counts,
+			"totalCount": totalCount,
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
@@ -1448,6 +1483,7 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 
 		// Initialize query and parameters
 		baseQuery := "SELECT country, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		countQuery := "SELECT COUNT(DISTINCT country) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
 		params := []interface{}{domain, start, end}
 		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
 
@@ -1468,48 +1504,80 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value) // Add the filter value to the parameters list
+				paramIndex++                   // Increment the parameter index for the next filter
 			}
 		}
 
 		// Complete the query
-		baseQuery += fmt.Sprintf(" GROUP BY country ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
-		params = append(params, limit, offset)
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY country ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
+		var wg sync.WaitGroup
+		var totalCount int
+		var countries []string
+		var counts []int
+		var countErr, dataErr error
 
-		// Query the database for statistics
-		stats, err := db.Query(baseQuery, params...)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var country string
+				var count int
+				if err := rows.Scan(&country, &count); err != nil {
+					dataErr = err
+					return
+				}
+				countries = append(countries, country)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting country data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var country string
-		var count int
-		var countries []string
-		var counts []int
-		for stats.Next() {
-			err = stats.Scan(&country, &count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			countries = append(countries, country)
-			counts = append(counts, count)
-		}
+		// Prepare and send the JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"countries": countries,
-			"counts":    counts,
+			"countries":  countries,
+			"counts":     counts,
+			"totalCount": totalCount,
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
@@ -1574,6 +1642,7 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 
 		// Initialize query and parameters
 		baseQuery := "SELECT region, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		countQuery := "SELECT COUNT(DISTINCT region) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
 		params := []interface{}{domain, start, end}
 		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
 
@@ -1602,40 +1671,72 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Complete the query
-		baseQuery += fmt.Sprintf(" GROUP BY region ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
-		params = append(params, limit, offset)
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY region ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
+		var wg sync.WaitGroup
+		var totalCount int
+		var regions []string
+		var counts []int
+		var countErr, dataErr error
 
-		// Query the database for statistics
-		stats, err := db.Query(baseQuery, params...)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var region string
+				var count int
+				if err := rows.Scan(&region, &count); err != nil {
+					dataErr = err
+					return
+				}
+				regions = append(regions, region)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting region data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var region string
-		var count int
-		var regions []string
-		var counts []int
-		for stats.Next() {
-			err = stats.Scan(&region, &count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			regions = append(regions, region)
-			counts = append(counts, count)
-		}
+		// Prepare and send the JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"regions": regions,
-			"counts":  counts,
+			"regions":    regions,
+			"counts":     counts,
+			"totalCount": totalCount,
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)
@@ -1700,6 +1801,7 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 
 		// Initialize query and parameters
 		baseQuery := "SELECT city, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
+		countQuery := "SELECT COUNT(DISTINCT city) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3"
 		params := []interface{}{domain, start, end}
 		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
 
@@ -1728,40 +1830,72 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Complete the query
-		baseQuery += fmt.Sprintf(" GROUP BY city ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
-		params = append(params, limit, offset)
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY city ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
 
-		// Print the final query and parameters
-		// log.Printf("Executing query: %s", baseQuery)
-		// log.Printf("With parameters: %v", params)
+		var wg sync.WaitGroup
+		var totalCount int
+		var cities []string
+		var counts []int
+		var countErr, dataErr error
 
-		// Query the database for statistics
-		stats, err := db.Query(baseQuery, params...)
-		if err != nil {
-			log.Println("Error getting website statistics:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var city string
+				var count int
+				if err := rows.Scan(&city, &count); err != nil {
+					dataErr = err
+					return
+				}
+				cities = append(cities, city)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting city data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Convert the statistics to JSON
-		defer stats.Close() // Close the result set after we're done with it
-		var city string
-		var count int
-		var cities []string
-		var counts []int
-		for stats.Next() {
-			err = stats.Scan(&city, &count)
-			if err != nil {
-				log.Println("Error scanning statistics:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			cities = append(cities, city)
-			counts = append(counts, count)
-		}
+		// Prepare and send the JSON response
 		jsonStats, err := json.Marshal(map[string]interface{}{
-			"cities": cities,
-			"counts": counts,
+			"cities":     cities,
+			"counts":     counts,
+			"totalCount": totalCount,
 		})
 		if err != nil {
 			log.Println("Error marshalling statistics:", err)

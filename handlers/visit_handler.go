@@ -175,7 +175,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// todo
 		// parsedIP := net.ParseIP(ip)
 		// for testing
-		parsedIP := net.ParseIP("45.14.71.8")
+		parsedIP := net.ParseIP("186.135.206.10")
 
 		if parsedIP == nil {
 			log.Println("Error parsing IP", err)
