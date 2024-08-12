@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	AccessTokenExpiration = NewExpirationTime(10 * time.Second) // for testing
-	// AccessTokenExpiration  = NewExpirationTime(15 * time.Minute)
+	// AccessTokenExpiration = NewExpirationTime(10 * time.Second) // for testing
+	AccessTokenExpiration = NewExpirationTime(15 * time.Minute)
 
 	// RefreshTokenExpiration = NewExpirationTime(15 * time.Second) // for testing
 	RefreshTokenExpiration = NewExpirationTime(14 * 24 * time.Hour)
