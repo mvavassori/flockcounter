@@ -46,23 +46,17 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
 
-		fmt.Println("startDate", startDate)
-		fmt.Println("endDate", endDate)
-
 		// Convert the dates to a format suitable for my database
 		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		fmt.Println("start", start)
 		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		fmt.Println("end", end)
 
 		// Extract the interval from the request query parameters
 		interval := r.URL.Query().Get("interval")
@@ -1504,10 +1498,10 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
-				params = append(params, value) // Add the filter value to the parameters list
-				paramIndex++                   // Increment the parameter index for the next filter
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -1663,10 +1657,10 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -1822,10 +1816,10 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
