@@ -131,7 +131,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)
+				log.Printf(" - %s: %s", param, value)
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 				params = append(params, value)
 				paramIndex++
@@ -290,7 +290,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			for param, column := range filters {
 				value := r.URL.Query().Get(param)
 				if value != "" {
-					log.Printf("Adding filter - %s: %s", param, value)
+					log.Printf(" - %s: %s", param, value)
 					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 					params = append(params, value)
 					paramIndex++
@@ -471,7 +471,7 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			for param, column := range filters {
 				value := r.URL.Query().Get(param)
 				if value != "" {
-					log.Printf("Adding filter - %s: %s", param, value)
+					log.Printf(" - %s: %s", param, value)
 					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 					params = append(params, value)
 					paramIndex++
@@ -995,7 +995,7 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
 				params = append(params, value)                                // Add the filter value to the parameters list
 				paramIndex++                                                  // Increment the parameter index for the next filter
@@ -1106,7 +1106,7 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
 				params = append(params, value)                                // Add the filter value to the parameters list
 				paramIndex++                                                  // Increment the parameter index for the next filter
@@ -1217,7 +1217,7 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf("Adding filter - %s: %s", param, value)            // Print the filter being added
+				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
 				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
 				params = append(params, value)                                // Add the filter value to the parameters list
 				paramIndex++                                                  // Increment the parameter index for the next filter
