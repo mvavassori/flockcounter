@@ -23,4 +23,8 @@ go.work
 # Air output folder
 /tmp
 
+# Other test files
 *.pdf
+
+# Environment variables
+.env

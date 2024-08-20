@@ -18,6 +18,7 @@ require (
 
 require (
 	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
+	github.com/stripe/stripe-go/v79 v79.8.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 )
 
