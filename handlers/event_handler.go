@@ -155,7 +155,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 		// todo
 		// parsedIP := net.ParseIP(ip)
 		// for testing
-		parsedIP := net.ParseIP("45.14.71.8")
+		parsedIP := net.ParseIP("151.30.13.167")
 
 		if parsedIP == nil {
 			log.Println("Error parsing IP", err)

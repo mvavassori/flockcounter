@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -18,10 +19,25 @@ func init() {
 func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		// extract email from json body // todo: change it to model
+		fmt.Println("CreateCheckoutSession")
+
+		// extract data from json body // todo: change it to model?
 		var req struct {
-			Email string `json:"email"`
+			Email  string `json:"email"`
+			UserID string `json:"userId"`
+			Plan   string `json:"plan"`
 		}
+
+		if req.Plan == "basic" {
+			req.Plan = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+		}
+
+		// // Define discounts slice
+		// discounts := []*stripe.CheckoutSessionDiscountParams{	// slice of pointers to stripe.CheckoutSessionDiscountParams
+		// 	{
+		// 		PromotionCode: stripe.String("PROMO_CODE"),
+		// 	},
+		// }
 
 		customerParams := &stripe.CustomerParams{
 			Email: stripe.String(req.Email),
@@ -39,7 +55,7 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 				// &stripe.CheckoutSessionLineItemParams
 				{
 					// Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-					Price:    stripe.String("price_1Ppu8VEjL7fX4p99LqYqruOC"), // basic plan test
+					Price:    stripe.String(req.Plan), // basic plan test
 					Quantity: stripe.Int64(1),
 				},
 			},
