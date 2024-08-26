@@ -13,6 +13,8 @@ type User struct {
 	Password  string    `json:"-"`        //``json:"-"` to hide the field
 	Websites  []Website `json:"websites"` // Slice of websites owned by the user
 	Role      string    `json:"role"`
+	StripeCustomerID  string    `json:"stripe_customer_id"`
+	SubscriptionStatus string 	`json:"subscription_status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
