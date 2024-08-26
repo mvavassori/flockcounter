@@ -1,9 +1,6 @@
 package utils
 
 import (
-	// "crypto/rand"
-	// "crypto/sha256"
-	// "encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
