@@ -71,6 +71,14 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, s.URL, http.StatusSeeOther)
+		response := map[string]string{"url": s.URL}
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Printf("json.NewEncoder: %v", err)
+			http.Error(w, "Error encoding response", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
 	}
 }
