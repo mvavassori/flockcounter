@@ -7,6 +7,26 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
+type ExpirationTime struct {
+	duration time.Duration
+}
+
+func NewExpirationTime(d time.Duration) ExpirationTime {
+	return ExpirationTime{duration: d}
+}
+
+func (e ExpirationTime) Unix() int64 {
+	return time.Now().Add(e.duration).Unix()
+}
+
+func (e ExpirationTime) Time() time.Time {
+	return time.Now().Add(e.duration)
+}
+
+func (e ExpirationTime) Duration() time.Duration {
+	return e.duration
+}
+
 var (
 	// AccessTokenExpiration = NewExpirationTime(10 * time.Second) // for testing
 	AccessTokenExpiration = NewExpirationTime(15 * time.Minute)
@@ -47,9 +67,6 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 	//todo get secret from env
 	secret := "my_secret_key"
 
-	//expirationTime := time.Now().Add(time.Minute * 15).Unix() // 15 minutes
-	// expirationTime := time.Now().Add(time.Second * 10).Unix() // for debugging
-
 	// Create the Claims
 	claims := &jwt.MapClaims{
 		"userId":    userID,
@@ -66,9 +83,6 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 func CreateRefreshToken(userID int) (string, error) {
 	//todo get secret from env
 	secret := "my_secret_key"
-
-	// expirationTime := time.Now().Add(time.Hour * 24 * 14).Unix() // 14 days
-	// expirationTime := time.Now().Add(time.Second * 15).Unix() // for debugging
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
