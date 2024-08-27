@@ -1,22 +1,26 @@
 package models
 
 import (
+	"database/sql"
 	"errors"
 	"net/mail"
 	"time"
 )
 
+// todo:fix stuff here
+
 type User struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`        //``json:"-"` to hide the field
-	Websites  []Website `json:"websites"` // Slice of websites owned by the user
-	Role      string    `json:"role"`
-	StripeCustomerID  string    `json:"stripe_customer_id"`
-	SubscriptionStatus string 	`json:"subscription_status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                 int            `json:"id"`
+	Name               string         `json:"name"`
+	Email              string         `json:"email"`
+	Password           string         `json:"-"`        //``json:"-"` to hide the field
+	Websites           []Website      `json:"websites"` // Slice of websites owned by the user
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	Role               string         `json:"role"`
+	StripeCustomerID   sql.NullString `json:"stripe_customer_id"`
+	SubscriptionStatus string         `json:"subscription_status"` // default value is "inactive"
+	SubscriptionPlan   sql.NullString `json:"subscription_plan"`
 }
 
 type UserInsert struct {

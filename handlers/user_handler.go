@@ -101,7 +101,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		// }
 
 		rows, err := db.Query(`
-            SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at, websites.id, websites.domain, websites.user_id
+            SELECT users.id, users.name, users.email, users.password, users.created_at, users.updated_at, users.role ,users.stripe_customer_id, users.subscription_status, users.subscription_plan, websites.id, websites.domain, websites.user_id
             FROM users
             LEFT JOIN websites ON users.id = websites.user_id
             WHERE users.id = $1
@@ -122,7 +122,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			found = true
 			var website models.Website
-			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &website.ID, &website.Domain, &website.UserID)
+			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.CreatedAt, &user.UpdatedAt, &user.Role, &user.StripeCustomerID, &user.SubscriptionStatus, &user.SubscriptionPlan, &website.ID, &website.Domain, &website.UserID)
 			if err != nil {
 				log.Println("Error scanning user and website:", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -243,6 +243,7 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 	}
 }
 
+// todo: test this
 func UpdateUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := utils.ExtractIDFromURL(r)
