@@ -11,6 +11,7 @@ import (
 
 	"strconv"
 
+	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/services"
 	"github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/checkout/session"
@@ -20,7 +21,7 @@ import (
 )
 
 func init() {
-	// change it to prod key
+	// todo: change it to prod key
 	stripe.Key = "sk_test_51ONYpVEjL7fX4p99WhzOhVfRqbdGmvYlI37v6tkSThMAYJZJ5CVIhZSU6UWzVCH1AyIMk8ocxp1A56fFrNSSjzXn00JAfKJEsm"
 }
 
@@ -29,9 +30,10 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 		fmt.Println("CreateCheckoutSession called")
 
 		var req struct {
-			Email  string `json:"email"`
-			UserID int    `json:"userId"`
-			Plan   string `json:"plan"`
+			Email       string `json:"email"`
+			UserID      int    `json:"userId"`
+			Plan        string `json:"plan"`
+			PlanPriceID string `json:"-"`
 		}
 
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -40,9 +42,15 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if req.Plan == "basic" {
-			req.Plan = "price_1Ppu8VEjL7fX4p99LqYqruOC"
-		} // todo add other plans
+		switch req.Plan {
+		case "basic":
+			req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+		case "business":
+			req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+		default:
+			http.Error(w, "Invalid plan", http.StatusBadRequest)
+			return
+		}
 
 		// check if user exists
 		user, err := services.GetUserById(db, req.UserID)
@@ -59,8 +67,8 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			customerParams := &stripe.CustomerParams{
 				Email: stripe.String(req.Email),
 			}
-			customerParams.AddMetadata("originalEmail", req.Email)
 			customerParams.AddMetadata("userId", strconv.Itoa(req.UserID))
+			customerParams.AddMetadata("originalEmail", req.Email)
 
 			newCustomer, err := customer.New(customerParams)
 			if err != nil {
@@ -84,7 +92,7 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			Customer: &stripeCustomerID,
 			LineItems: []*stripe.CheckoutSessionLineItemParams{
 				{
-					Price:    stripe.String(req.Plan),
+					Price:    stripe.String(req.PlanPriceID),
 					Quantity: stripe.Int64(1),
 				},
 			},
@@ -94,6 +102,16 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			AutomaticTax: &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
 			CustomerUpdate: &stripe.CheckoutSessionCustomerUpdateParams{
 				Address: stripe.String("auto"),
+			},
+			Metadata: map[string]string{
+				"userId": strconv.Itoa(req.UserID),
+				"plan":   req.Plan,
+			},
+			SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
+				Metadata: map[string]string{
+					"userId": strconv.Itoa(req.UserID),
+					"plan":   req.Plan,
+				},
 			},
 		}
 
@@ -115,7 +133,6 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// todo: add actions after cases
 // Pasted from stripe docs
 func StripeWebhook(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +160,58 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 		}
 		// Unmarshal the event data into an appropriate struct depending on its Type
 		switch event.Type {
+		case "checkout.session.completed":
+			var session stripe.CheckoutSession
+			err := json.Unmarshal(event.Data.Raw, &session)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			log.Printf("Checkout session completed for %s.", session.ID)
+
+			// Access metadata from the session
+			userId, ok := session.Metadata["userId"]
+			if !ok {
+				log.Printf("User ID not found in session metadata")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			log.Printf("User ID: %s", userId)
+
+			plan, ok := session.Metadata["plan"]
+			if !ok {
+				log.Printf("Plan not found in session metadata")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			log.Printf("Plan: %s", plan)
+			// get the user from the database
+			var user models.User
+			userIdInt, err := strconv.Atoi(userId)
+			if err != nil {
+				log.Printf("Error converting userId to int: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			user, err = services.GetUserById(db, userIdInt)
+			if err != nil {
+				log.Printf("Error getting user by ID: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			user.SubscriptionStatus = "active"
+			user.SubscriptionPlan = sql.NullString{String: plan, Valid: true}
+			// update the user's subscription status and plan in the database
+			err = services.UpdateSubscriptionStatusAndPlan(db, user)
+			if err != nil {
+				log.Printf("Error updating subscription status: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// todo: send email to user
+
 		case "customer.subscription.deleted":
 			var subscription stripe.Subscription
 			err := json.Unmarshal(event.Data.Raw, &subscription)
@@ -152,52 +221,81 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			log.Printf("Subscription deleted for %s.", subscription.ID)
+
+			// get the user id from the subscription
+			userId := subscription.Metadata["userId"]
+			log.Printf("User ID: %s", userId)
+			// get the user from the database
+			var user models.User
+			userIdInt, err := strconv.Atoi(userId)
+			if err != nil {
+				log.Printf("Error converting userId to int: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			user, err = services.GetUserById(db, userIdInt)
+			if err != nil {
+				log.Printf("Error getting user by ID: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			user.SubscriptionStatus = "inactive" // todo: figure out how to differentiate between canceled and not renewed
+			user.SubscriptionPlan = sql.NullString{String: "", Valid: false}
+			// update the user's subscription status and plan in the database
+			err = services.UpdateSubscriptionStatusAndPlan(db, user)
+			if err != nil {
+				log.Printf("Error updating subscription status: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		// Then define and call a func to handle the deleted subscription.
 		// handleSubscriptionCanceled(subscription)
-		case "customer.subscription.updated":
-			var subscription stripe.Subscription
-			err := json.Unmarshal(event.Data.Raw, &subscription)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			log.Printf("Subscription updated for %s.", subscription.ID)
-		// Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// handleSubscriptionUpdated(subscription)
-		case "customer.subscription.created":
-			var subscription stripe.Subscription
-			err := json.Unmarshal(event.Data.Raw, &subscription)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			log.Printf("Subscription created for %s.", subscription.ID)
-		// Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// handleSubscriptionCreated(subscription)
-		case "customer.subscription.trial_will_end":
-			var subscription stripe.Subscription
-			err := json.Unmarshal(event.Data.Raw, &subscription)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			log.Printf("Subscription trial will end for %s.", subscription.ID)
-		// Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// handleSubscriptionTrialWillEnd(subscription)
-		case "entitlements.active_entitlement_summary.updated":
-			var subscription stripe.Subscription
-			err := json.Unmarshal(event.Data.Raw, &subscription)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			log.Printf("Active entitlement summary updated for %s.", subscription.ID)
-		// Then define and call a func to handle active entitlement summary updated.
-		// handleEntitlementUpdated(subscription)
+		// case "customer.subscription.updated":
+		// 	var subscription stripe.Subscription
+		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+		// 	if err != nil {
+		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+		// 		w.WriteHeader(http.StatusBadRequest)
+		// 		return
+		// 	}
+		// 	log.Printf("Subscription updated for %s.", subscription.ID)
+		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
+		// // handleSubscriptionUpdated(subscription)
+		// case "customer.subscription.created":
+		// 	var subscription stripe.Subscription
+		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+		// 	if err != nil {
+		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+		// 		w.WriteHeader(http.StatusBadRequest)
+		// 		return
+		// 	}
+		// 	log.Printf("Subscription created for %s.", subscription.ID)
+		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
+		// customerID := subscription.Customer.ID
+		// log.Printf("Customer ID: %s", customerID)
+		// // handleSubscriptionCreated(subscription)
+		// case "customer.subscription.trial_will_end":
+		// 	var subscription stripe.Subscription
+		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+		// 	if err != nil {
+		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+		// 		w.WriteHeader(http.StatusBadRequest)
+		// 		return
+		// 	}
+		// 	log.Printf("Subscription trial will end for %s.", subscription.ID)
+		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
+		// // handleSubscriptionTrialWillEnd(subscription)
+		// case "entitlements.active_entitlement_summary.updated":
+		// 	var subscription stripe.Subscription
+		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+		// 	if err != nil {
+		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+		// 		w.WriteHeader(http.StatusBadRequest)
+		// 		return
+		// 	}
+		// 	log.Printf("Active entitlement summary updated for %s.", subscription.ID)
+		// // Then define and call a func to handle active entitlement summary updated.
+		// // handleEntitlementUpdated(subscription)
 		default:
 			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
 		}

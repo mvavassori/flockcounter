@@ -23,8 +23,8 @@ func AddStripeCustomerID(db *sql.DB, user models.User) error {
 	return nil
 }
 
-func UpdateSubscriptionStatus(db *sql.DB, user models.User) error {
-	_, err := db.Exec("UPDATE users SET subscription_status = $1 WHERE id = $2", user.SubscriptionStatus, user.ID)
+func UpdateSubscriptionStatusAndPlan(db *sql.DB, user models.User) error {
+	_, err := db.Exec("UPDATE users SET subscription_status = $1, subscription_plan = $2 WHERE id = $3", user.SubscriptionStatus, user.SubscriptionPlan, user.ID)
 	if err != nil {
 		return err
 	}
