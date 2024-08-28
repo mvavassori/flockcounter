@@ -172,10 +172,10 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 		defer geoip2DB.Close()
 
-		// todo
+		// todo: enable this in production
 		// parsedIP := net.ParseIP(ip)
 		// for testing
-		parsedIP := net.ParseIP("186.135.206.10")
+		parsedIP := net.ParseIP("151.30.13.167")
 
 		if parsedIP == nil {
 			log.Println("Error parsing IP", err)
