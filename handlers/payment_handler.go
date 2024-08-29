@@ -13,6 +13,7 @@ import (
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/services"
+	"github.com/mvavassori/bare-analytics/utils"
 	"github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/checkout/session"
 
@@ -211,6 +212,11 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 			}
 
 			// todo: send email to user
+			recipientEmail := "famigliavavassori@outlook.it"
+			subject := "Subscription Success Subject"
+			body := "Your subscription has been successful."
+
+			utils.SendEmail(recipientEmail, subject, body)
 
 		case "customer.subscription.deleted":
 			var subscription stripe.Subscription
@@ -222,7 +228,7 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 			}
 			log.Printf("Subscription deleted for %s.", subscription.ID)
 
-			// get the user id from the subscription
+			// access metadata from the subscription
 			userId := subscription.Metadata["userId"]
 			log.Printf("User ID: %s", userId)
 			// get the user from the database
@@ -248,6 +254,14 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+
+			// todo: send email to user
+			recipientEmail := "famigliavavassori@outlook.it"
+			subject := "Subscription Canceled Subject"
+			body := "Your subscription has been canceled."
+
+			utils.SendEmail(recipientEmail, subject, body)
+
 		// Then define and call a func to handle the deleted subscription.
 		// handleSubscriptionCanceled(subscription)
 		// case "customer.subscription.updated":
@@ -299,6 +313,26 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 		default:
 			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
 		}
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func TestEmailSending() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("TestEmailSending handler called")
+
+		recipientEmail := "famigliavavassori@outlook.it"
+		subject := "Test Email Subject"
+		body := "This is a test email body sent from Go!"
+
+		log.Printf("Sending test email to: %s", recipientEmail)
+		err := utils.SendEmail(recipientEmail, subject, body)
+		if err != nil {
+			log.Printf("Failed to send test email: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Println("Test email sent successfully!")
 		w.WriteHeader(http.StatusOK)
 	}
 }
