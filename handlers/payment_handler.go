@@ -35,6 +35,7 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			UserID      int    `json:"userId"`
 			Plan        string `json:"plan"`
 			PlanPriceID string `json:"-"`
+			Interval    string `json:"interval"`
 		}
 
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -45,9 +46,17 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 
 		switch req.Plan {
 		case "basic":
-			req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+			if req.Interval == "yearly" {
+				req.PlanPriceID = "price_1Puz0cEjL7fX4p99uzMKrtD2"
+			} else {
+				req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+			}
 		case "business":
-			req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
+			if req.Interval == "yearly" {
+				req.PlanPriceID = "price_1Puz3DEjL7fX4p99LV0Mvly5"
+			} else {
+				req.PlanPriceID = "price_1PuyzDEjL7fX4p9997UVPTP1"
+			}
 		default:
 			http.Error(w, "Invalid plan", http.StatusBadRequest)
 			return

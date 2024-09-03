@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/mvavassori/bare-analytics/models"
+	"github.com/mvavassori/bare-analytics/services"
 	"github.com/mvavassori/bare-analytics/utils"
 	"golang.org/x/crypto/bcrypt"
 )
-
-// CRUD operations for users
 
 func GetUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
@@ -91,15 +90,6 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// // Extract the userId from the context
-		// tokenUserID := r.Context().Value(middleware.UserIdKey).(int)
-
-		// // Compare the userId in the context with the userId in the request
-		// if id != tokenUserID {
-		// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		// 	return
-		// }
-
 		rows, err := db.Query(`
             SELECT users.id, users.name, users.email, users.password, users.created_at, users.updated_at, users.role ,users.stripe_customer_id, users.subscription_status, users.subscription_plan, websites.id, websites.domain, websites.user_id
             FROM users
@@ -140,7 +130,26 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		jsonResponse, err := json.Marshal(user)
+		var subscriptionExpiryDate string
+		if user.StripeCustomerID.Valid && user.SubscriptionStatus != "inactive" {
+			subscriptions, err := services.GetActiveSubscriptions(user.StripeCustomerID.String)
+			if err != nil {
+				log.Println("Error getting user subscription data:", err)
+				return
+			}
+			for _, subscription := range subscriptions {
+				expiryDate := time.Unix(subscription.CurrentPeriodEnd, 0)
+				subscriptionExpiryDate = expiryDate.Format("2006-01-02")
+				fmt.Printf("Subscription ID: %s, Expires at: %s\n", subscription.ID, subscriptionExpiryDate)
+			}
+		}
+
+		responseData := map[string]interface{}{
+			"user":                   user,
+			"subscriptionExpiryDate": subscriptionExpiryDate, // returns the last subscription's expiry date(?)
+		}
+
+		jsonResponse, err := json.Marshal(responseData)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
