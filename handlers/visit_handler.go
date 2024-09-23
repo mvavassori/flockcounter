@@ -4,18 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
-	// "io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-
-	// "time"
-
-	// "sync"
 
 	_ "github.com/lib/pq"
 	"github.com/mileusna/useragent"
@@ -134,6 +130,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		fmt.Println(time.Now())
 		// textData, err := io.ReadAll(r.Body)
 		// if err != nil {
 		// 	http.Error(w, err.Error(), http.StatusBadRequest)
