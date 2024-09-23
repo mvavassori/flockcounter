@@ -19,9 +19,6 @@ const RoleKey contextKey = "role"
 
 func AdminOrAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		log.Println("AdminOrAuth called")
-
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
 			http.Error(w, "Authorization header required", http.StatusUnauthorized)
@@ -67,9 +64,6 @@ func AdminOrAuth(next http.Handler) http.Handler {
 
 func Admin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		log.Println("Admin called")
-
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
 			http.Error(w, "Authorization header required", http.StatusUnauthorized)
@@ -107,9 +101,6 @@ func Admin(next http.Handler) http.Handler {
 
 func AdminOrOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		log.Println("AdminOrOwner called")
-
 		urlUserID, err := utils.ExtractIDFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -158,8 +149,6 @@ func AdminOrOwner(next http.Handler) http.Handler {
 func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Println("AdminOrUserWebsite called")
-
 			urlWebsiteDomain, err := utils.ExtractDomainFromURL(r)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
