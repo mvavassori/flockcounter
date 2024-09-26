@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"log"
 	"net"
@@ -130,7 +129,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		fmt.Println(time.Now())
+		// fmt.Println(time.Now())
 		// textData, err := io.ReadAll(r.Body)
 		// if err != nil {
 		// 	http.Error(w, err.Error(), http.StatusBadRequest)
