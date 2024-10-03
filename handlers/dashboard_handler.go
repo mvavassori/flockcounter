@@ -58,9 +58,6 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		log.Println("start", start)
-		log.Println("end", end)
-
 		// Extract the interval from the request query parameters
 		interval := r.URL.Query().Get("interval")
 		if interval != "hour" && interval != "day" && interval != "month" {
