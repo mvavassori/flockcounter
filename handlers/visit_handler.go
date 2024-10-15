@@ -210,11 +210,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			city = cityName
 		}
 
-		// Print location information
-		// fmt.Println("Country:", country)
-		// fmt.Println("Region:", region)
-		// fmt.Println("City:", city)
-
 		// Create a VisitReceiver struct to hold the request data
 		var visitReceiver models.VisitReceiver
 
@@ -237,13 +232,14 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		domain := url.Hostname()
 
-		// fmt.Println(domain)
-
 		// extract the referrer
 		referrer := visitReceiver.Referrer
 
 		// Check if the referrer is empty or null
 		if referrer == "" {
+			referrer = "Direct"
+		} else if referrer == "Direct" {
+			// Explicitly handle the case where the referrer is "Direct" (my script sends it when ther's no referrer)
 			referrer = "Direct"
 		} else {
 			// Remove the protocol from the referrer
@@ -256,8 +252,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 			referrer = referrerURL.Host + referrerURL.Path
 		}
-
-		// fmt.Println("Frontend sent: ", visitReceiver)
 
 		// Look up the websiteId using the domain
 		var websiteId int
