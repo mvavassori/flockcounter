@@ -2,16 +2,10 @@ package services
 
 import (
 	"database/sql"
-	"fmt"
-
-	// "encoding/json"
-	// "log"
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/subscription"
-	// "github.com/stripe/stripe-go/v79/customer"
-	// "github.com/stripe/stripe-go/v79/subscription"
 )
 
 func GetUserById(db *sql.DB, id int) (models.User, error) {
@@ -39,27 +33,24 @@ func UpdateSubscriptionStatusAndPlan(db *sql.DB, user models.User) error {
 	return nil
 }
 
-func GetActiveSubscriptions(customerID string) ([]*stripe.Subscription, error) {
+func GetActiveSubscription(customerID string) (*stripe.Subscription, error) {
 	params := &stripe.SubscriptionListParams{
 		Customer: stripe.String(customerID),
 		Status:   stripe.String("active"),
 	}
-	params.Filters.AddFilter("limit", "", "100") // Set a limit as needed
+	params.Filters.AddFilter("limit", "", "1") // Only get the latest active subscription
 
 	iter := subscription.List(params)
 
-	var activeSubscriptions []*stripe.Subscription
-
-	for iter.Next() {
-		subscription := iter.Subscription()
-		activeSubscriptions = append(activeSubscriptions, subscription)
+	if iter.Next() {
+		// Return the first active subscription found
+		return iter.Subscription(), nil
 	}
 
+	// If no active subscription is found
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 
-	fmt.Println("Active subscriptions:", activeSubscriptions)
-
-	return activeSubscriptions, nil
+	return nil, nil // No active subscription
 }

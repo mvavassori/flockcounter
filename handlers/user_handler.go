@@ -130,17 +130,20 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Get the active subscription and set the expiry date
 		var subscriptionExpiryDate string
 		if user.StripeCustomerID.Valid && user.SubscriptionStatus != "inactive" {
-			subscriptions, err := services.GetActiveSubscriptions(user.StripeCustomerID.String)
+			activeSubscription, err := services.GetActiveSubscription(user.StripeCustomerID.String)
 			if err != nil {
 				log.Println("Error getting user subscription data:", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
-			for _, subscription := range subscriptions {
-				expiryDate := time.Unix(subscription.CurrentPeriodEnd, 0)
+
+			if activeSubscription != nil {
+				expiryDate := time.Unix(activeSubscription.CurrentPeriodEnd, 0)
 				subscriptionExpiryDate = expiryDate.Format("2006-01-02")
-				fmt.Printf("Subscription ID: %s, Expires at: %s\n", subscription.ID, subscriptionExpiryDate)
+				fmt.Printf("Subscription ID: %s, Expires at: %s\n", activeSubscription.ID, subscriptionExpiryDate)
 			}
 		}
 

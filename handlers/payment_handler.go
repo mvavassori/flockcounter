@@ -13,7 +13,6 @@ import (
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/services"
-	"github.com/mvavassori/bare-analytics/utils"
 	"github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/checkout/session"
 
@@ -21,15 +20,33 @@ import (
 	"github.com/stripe/stripe-go/v79/webhook"
 )
 
+type PlanDetails struct {
+	Plan     string
+	Interval string
+}
+
+// todo change to prod price ids
+var planToPriceID = map[PlanDetails]string{
+	{"basic", "monthly"}:    "price_1Ppu8VEjL7fX4p99LqYqruOC",
+	{"basic", "yearly"}:     "price_1Puz0cEjL7fX4p99uzMKrtD2",
+	{"business", "monthly"}: "price_1PuyzDEjL7fX4p9997UVPTP1",
+	{"business", "yearly"}:  "price_1Puz3DEjL7fX4p99LV0Mvly5",
+}
+
+var priceIDToPlan = make(map[string]PlanDetails)
+
 func init() {
 	// todo: change it to prod key
 	stripe.Key = "sk_test_51ONYpVEjL7fX4p99WhzOhVfRqbdGmvYlI37v6tkSThMAYJZJ5CVIhZSU6UWzVCH1AyIMk8ocxp1A56fFrNSSjzXn00JAfKJEsm"
+
+	// Populate the reverse map from planToPriceID // made this to being able define and update PriceID mappings in one place (planToPriceID)
+	for planDetails, priceID := range planToPriceID { // iterate over the planToPriceId map and "grab" the planDetails key and the priceID values
+		priceIDToPlan[priceID] = planDetails // create a map that maps the priceID (of the original planToPriceID map) to the planDetails. (basically invert the planToPriceID from key:value to value:key)
+	}
 }
 
 func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("CreateCheckoutSession called")
-
 		var req struct {
 			Email       string `json:"email"`
 			UserID      int    `json:"userId"`
@@ -37,28 +54,9 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			PlanPriceID string `json:"-"`
 			Interval    string `json:"interval"`
 		}
-
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		switch req.Plan {
-		case "basic":
-			if req.Interval == "yearly" {
-				req.PlanPriceID = "price_1Puz0cEjL7fX4p99uzMKrtD2"
-			} else {
-				req.PlanPriceID = "price_1Ppu8VEjL7fX4p99LqYqruOC"
-			}
-		case "business":
-			if req.Interval == "yearly" {
-				req.PlanPriceID = "price_1Puz3DEjL7fX4p99LV0Mvly5"
-			} else {
-				req.PlanPriceID = "price_1PuyzDEjL7fX4p9997UVPTP1"
-			}
-		default:
-			http.Error(w, "Invalid plan", http.StatusBadRequest)
 			return
 		}
 
@@ -69,6 +67,27 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Error getting user", http.StatusInternalServerError)
 			return
 		}
+
+		// Check for existing subscriptions
+		existingSubscriptions, err := services.GetActiveSubscription(user.StripeCustomerID.String)
+		if err != nil {
+			http.Error(w, "Unable to check subscriptions", http.StatusInternalServerError)
+			return
+		}
+
+		// Prevent creation of a new session if an active subscription exists
+		if existingSubscriptions != nil {
+			http.Error(w, "User already has an active subscription", http.StatusConflict)
+			return
+		}
+
+		planDetails := PlanDetails{Plan: req.Plan, Interval: req.Interval}
+		priceID, found := planToPriceID[planDetails]
+		if !found {
+			http.Error(w, "Invalid plan or interval", http.StatusBadRequest)
+			return
+		}
+		req.PlanPriceID = priceID
 
 		var stripeCustomerID string
 		if user.StripeCustomerID.Valid {
@@ -107,8 +126,8 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 				},
 			},
 			Mode:         stripe.String(string(stripe.CheckoutSessionModeSubscription)),
-			SuccessURL:   stripe.String("http://localhost:3000/success"),
-			CancelURL:    stripe.String("http://localhost:3000/canceled"),
+			SuccessURL:   stripe.String("http://localhost:3000/success"),  // todo change to prod
+			CancelURL:    stripe.String("http://localhost:3000/canceled"), // todo change to prod
 			AutomaticTax: &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
 			CustomerUpdate: &stripe.CheckoutSessionCustomerUpdateParams{
 				Address: stripe.String("auto"),
@@ -221,11 +240,11 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 			}
 
 			// todo: send email to user
-			recipientEmail := "famigliavavassori@outlook.it"
-			subject := "Subscription Success Subject"
-			body := "Your subscription has been successful."
+			// recipientEmail := "famigliavavassori@outlook.it"
+			// subject := "Subscription Success Subject"
+			// body := "Your subscription has been successful."
 
-			utils.SendEmail(recipientEmail, subject, body)
+			// utils.SendEmail(recipientEmail, subject, body)
 
 		case "customer.subscription.deleted":
 			var subscription stripe.Subscription
@@ -254,7 +273,7 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			user.SubscriptionStatus = "inactive" // todo: figure out how to differentiate between canceled and not renewed
+			user.SubscriptionStatus = "inactive"
 			user.SubscriptionPlan = sql.NullString{String: "", Valid: false}
 			// update the user's subscription status and plan in the database
 			err = services.UpdateSubscriptionStatusAndPlan(db, user)
@@ -265,25 +284,71 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 			}
 
 			// todo: send email to user
-			recipientEmail := "famigliavavassori@outlook.it"
-			subject := "Subscription Canceled Subject"
-			body := "Your subscription has been canceled."
+			// recipientEmail := "famigliavavassori@outlook.it"
+			// subject := "Subscription Canceled Subject"
+			// body := "Your subscription has been canceled."
 
-			utils.SendEmail(recipientEmail, subject, body)
+			// utils.SendEmail(recipientEmail, subject, body)
 
-		// Then define and call a func to handle the deleted subscription.
-		// handleSubscriptionCanceled(subscription)
-		// case "customer.subscription.updated":
-		// 	var subscription stripe.Subscription
-		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
-		// 	if err != nil {
-		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-		// 		w.WriteHeader(http.StatusBadRequest)
-		// 		return
-		// 	}
-		// 	log.Printf("Subscription updated for %s.", subscription.ID)
-		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// // handleSubscriptionUpdated(subscription)
+			// Then define and call a func to handle the deleted subscription.
+			// handleSubscriptionCanceled(subscription)
+
+		case "customer.subscription.updated":
+			var subscription stripe.Subscription
+			err = json.Unmarshal(event.Data.Raw, &subscription)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			log.Printf("Subscription updated for %s.", subscription.ID)
+
+			// Extracting user ID from metadata
+			userId := subscription.Metadata["userId"]
+			log.Printf("User ID: %s", userId)
+
+			userIdInt, err := strconv.Atoi(userId)
+			if err != nil {
+				log.Printf("Error converting userId to int: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			// Get the user from the database
+			user, err := services.GetUserById(db, userIdInt)
+			if err != nil {
+				log.Printf("Error getting user by ID: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// Determine subscription status
+			user.SubscriptionStatus = string(subscription.Status) // Subscription status directly from Stripe (e.g., active, past_due, canceled)
+
+			priceID := subscription.Items.Data[0].Price.ID
+			planDetails, found := priceIDToPlan[priceID] // The second argument in maps (in this case `found`) returns true if the key exists in the map otherwise false
+			if found {
+				user.SubscriptionPlan = sql.NullString{String: planDetails.Plan, Valid: true}
+			} else {
+				user.SubscriptionPlan = sql.NullString{Valid: false} // Set to NULL if not found
+			}
+
+			// Update the user's subscription status and plan in the database
+			err = services.UpdateSubscriptionStatusAndPlan(db, user)
+			if err != nil {
+				log.Printf("Error updating subscription status: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+		// todo: send email to user
+		// recipientEmail := "famigliavavassori@outlook.it"
+		// subject := "Subscription Canceled Subject"
+		// body := "Your subscription has been canceled."
+
+		// utils.SendEmail(recipientEmail, subject, body)
+
 		// case "customer.subscription.created":
 		// 	var subscription stripe.Subscription
 		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
@@ -297,6 +362,7 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 		// customerID := subscription.Customer.ID
 		// log.Printf("Customer ID: %s", customerID)
 		// // handleSubscriptionCreated(subscription)
+
 		// case "customer.subscription.trial_will_end":
 		// 	var subscription stripe.Subscription
 		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
@@ -308,6 +374,7 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 		// 	log.Printf("Subscription trial will end for %s.", subscription.ID)
 		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
 		// // handleSubscriptionTrialWillEnd(subscription)
+
 		// case "entitlements.active_entitlement_summary.updated":
 		// 	var subscription stripe.Subscription
 		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
@@ -326,22 +393,22 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func TestEmailSending() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Println("TestEmailSending handler called")
+// func TestEmailSending() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		log.Println("TestEmailSending handler called")
 
-		recipientEmail := "famigliavavassori@outlook.it"
-		subject := "Test Email Subject"
-		body := "This is a test email body sent from Go!"
+// 		recipientEmail := "famigliavavassori@outlook.it"
+// 		subject := "Test Email Subject"
+// 		body := "This is a test email body sent from Go!"
 
-		log.Printf("Sending test email to: %s", recipientEmail)
-		err := utils.SendEmail(recipientEmail, subject, body)
-		if err != nil {
-			log.Printf("Failed to send test email: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		log.Println("Test email sent successfully!")
-		w.WriteHeader(http.StatusOK)
-	}
-}
+// 		log.Printf("Sending test email to: %s", recipientEmail)
+// 		err := utils.SendEmail(recipientEmail, subject, body)
+// 		if err != nil {
+// 			log.Printf("Failed to send test email: %v", err)
+// 			w.WriteHeader(http.StatusInternalServerError)
+// 			return
+// 		}
+// 		log.Println("Test email sent successfully!")
+// 		w.WriteHeader(http.StatusOK)
+// 	}
+// }
