@@ -62,7 +62,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/payment/checkout", middleware.AdminOrAuth(handlers.CreateCheckoutSession(db))).Methods("POST")
 	router.HandleFunc("/api/payment/webhook", handlers.StripeWebhook(db)).Methods("POST")
 
-	router.HandleFunc("/api/test-email", handlers.TestEmailSending()).Methods("POST")
+	// router.HandleFunc("/api/test-email", handlers.TestEmailSending()).Methods("POST")
 
 	return router
 }
