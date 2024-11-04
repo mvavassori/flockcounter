@@ -511,3 +511,69 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 		w.Write(response)
 	}
 }
+
+// Plan limits
+
+func GetUserWebsiteLimits(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the user ID from the URL
+		id, err := utils.ExtractIDFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Query to get the user's plan and website count
+		var plan sql.NullString
+		var websiteCount int
+
+		err = db.QueryRow(`
+            SELECT users.subscription_plan, COUNT(websites.id)
+            FROM users
+            LEFT JOIN websites ON users.id = websites.user_id
+            WHERE users.id = $1
+            GROUP BY users.subscription_plan
+        `, id).Scan(&plan, &websiteCount)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, fmt.Sprintf("User with id %d doesn't exist", id), http.StatusNotFound)
+				return
+			}
+			log.Println("Error retrieving user plan and website count:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Determine the max number of websites based on the plan
+		var maxWebsites int
+		switch plan.String {
+		case "basic":
+			maxWebsites = 5 // For example, 1 website for basic plan
+		case "business":
+			maxWebsites = 10 // Example limit for business plan
+		default:
+			maxWebsites = 0 // No websites allowed if the plan is NULL or unrecognized
+		}
+
+		// Construct the response
+		responseData := map[string]interface{}{
+			"plan":          plan.String,
+			"websiteCount":  websiteCount,
+			"maxWebsites":   maxWebsites,
+			"canAddWebsite": websiteCount < maxWebsites,
+		}
+
+		// Encode response to JSON
+		jsonResponse, err := json.Marshal(responseData)
+		if err != nil {
+			log.Println("Error encoding JSON:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+	}
+}
