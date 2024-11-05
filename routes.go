@@ -39,8 +39,8 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/websites/user/{id}", middleware.AdminOrOwner(handlers.GetUserWebsites(db))).Methods("GET")
 	router.Handle("/api/website/{id}", middleware.AdminOrOwner(handlers.GetWebsite(db))).Methods("GET")
 	router.Handle("/api/website", middleware.AdminOrAuth(handlers.CreateWebsite(db))).Methods("POST")
-	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsite(db)(handlers.UpdateWebsite(db))).Methods("PUT")
-	router.Handle("/api/website/{id}", middleware.AdminOrUserWebsite(db)(handlers.DeleteWebsite(db))).Methods("DELETE")
+	// router.Handle("/api/website/{domain}", middleware.AdminOrUserWebsite(db)(handlers.UpdateWebsite(db))).Methods("PUT")
+	router.Handle("/api/website/{domain}", middleware.AdminOrUserWebsite(db)(handlers.DeleteWebsite(db))).Methods("DELETE")
 
 	// dashboard routes
 	router.Handle("/api/dashboard/top-stats/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetTopStats(db))).Methods("GET")
