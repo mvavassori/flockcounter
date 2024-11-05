@@ -148,7 +148,6 @@ func GetWebsite(db *sql.DB) http.HandlerFunc {
 
 func CreateWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		// Get the userId from the context
 		userId, ok := r.Context().Value(middleware.UserIdKey).(int)
 		if !ok {
@@ -156,31 +155,25 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Create a WebsiteInsert struct to hold the request body data
-		var website models.WebsiteInsert
-
-		// Decide the JSON data from the request body into the WebsiteInsert struct
-		err := json.NewDecoder(r.Body).Decode(&website)
-		if err != nil {
+		// Decode request JSON into WebsiteReceiver
+		var websiteReceiver models.WebsiteReceiver
+		if err := json.NewDecoder(r.Body).Decode(&websiteReceiver); err != nil {
 			log.Println("Error decoding JSON:", err)
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
-		// Set the UserID field in the WebsiteInsert struct to the userId retrieved from the context
-		website.UserID = userId
-
 		// Check if a website with the same domain already exists in the database
 		var existingDomain string
-		err = db.QueryRow(`
+		err := db.QueryRow(`
 			SELECT domain
 			FROM websites
 			WHERE domain = $1
-		`, website.Domain).Scan(&existingDomain)
+		`, websiteReceiver.Domain).Scan(&existingDomain)
 
 		if err == nil {
 			// If a website with the same domain already exists, return a conflict error
-			http.Error(w, "Conflict", http.StatusConflict)
+			http.Error(w, "Domain already exists", http.StatusConflict)
 			return
 		} else if err != sql.ErrNoRows {
 			// If there was an error executing the query, return an internal server error
@@ -189,16 +182,19 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Set the CreatedAt and UpdatedAt fields in the WebsiteInsert struct
-		website.CreatedAt = time.Now()
-		website.UpdatedAt = time.Now()
+		// Map data to WebsiteInsert struct and set timestamps
+		websiteInsert := models.WebsiteInsert{
+			Domain:    websiteReceiver.Domain,
+			UserID:    userId,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
 
 		// Insert the website into the database
-		_, err = db.Exec(`
-			INSERT INTO websites (domain, user_id, created_at, updated_at)
-			VALUES ($1, $2)
-		`, website.Domain, website.UserID, website.CreatedAt, website.UpdatedAt)
-
+		_, err = db.Exec(
+			`INSERT INTO websites (domain, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4)`,
+			websiteInsert.Domain, websiteInsert.UserID, websiteInsert.CreatedAt, websiteInsert.UpdatedAt,
+		)
 		if err != nil {
 			log.Println("Error inserting website:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -206,83 +202,21 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-	}
-}
-
-// UpdateWebsite updates an existing website in the database
-func UpdateWebsite(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := utils.ExtractIDFromURL(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		var website models.WebsiteInsert
-		// Decode the request body into the website variable
-		err = json.NewDecoder(r.Body).Decode(&website)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// update the update_at field
-		website.UpdatedAt = time.Now()
-
-		// Update the website in the database
-		updateQuery := "UPDATE websites SET domain = $1, user_id = $2, updated_at = $3 WHERE id = $4"
-		// _, err = db.Exec(updateQuery, website.Domain, website.UserID, id)
-		result, err := db.Exec(updateQuery, website.Domain, website.UserID, website.UpdatedAt, id)
-		if err != nil {
-			log.Println("Error updating website:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		if rowsAffected == 0 {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
-			return
-		}
-
-		// Create a WebsiteResponse object to return in the response
-		websiteUpdateResponse := models.WebsiteUpdateResponse{
-			ID:     int64(id),
-			Domain: website.Domain,
-			UserID: website.UserID,
-		}
-
-		// Convert the website object to JSON
-		jsonResponse, err := json.Marshal(websiteUpdateResponse)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Set the content type header and write the response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
-
+		fmt.Fprintf(w, "Website created successfully")
 	}
 }
 
 func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the id from the url
-		id, err := utils.ExtractIDFromURL(r)
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Delete the website from the database
-		result, err := db.Exec("DELETE FROM websites WHERE id = $1", id)
+		result, err := db.Exec("DELETE FROM websites WHERE domain = $1", domain)
 		if err != nil {
 			log.Println("Error deleting website:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -296,11 +230,87 @@ func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 		}
 
 		if rowsAffected == 0 {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
 		// return a 200 response
 		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Website deleted successfully")
 	}
 }
+
+// // todo fix this. IT DOESN'T WORK CORRECTLY AT THE MOMENT
+// // UpdateWebsite updates an existing website in the database
+// func UpdateWebsite(db *sql.DB) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		// Extract website ID from URL
+// 		id, err := utils.ExtractIDFromURL(r)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Decode the request body into a WebsiteInsert struct
+// 		var websiteUpdate models.WebsiteReceiver
+// 		err = json.NewDecoder(r.Body).Decode(&websiteUpdate)
+// 		if err != nil {
+// 			http.Error(w, "Invalid JSON in request body", http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Check if website exists and if the user has the right permissions (handled by AdminOrUserWebsite middleware)
+// 		var existingWebsite models.Website
+// 		err = db.QueryRow(`SELECT id, domain, user_id FROM websites WHERE id = $1`, id).Scan(&existingWebsite.ID, &existingWebsite.Domain, &existingWebsite.UserID)
+// 		if err == sql.ErrNoRows {
+// 			http.Error(w, "Website not found", http.StatusNotFound)
+// 			return
+// 		} else if err != nil {
+// 			log.Println("Error fetching website:", err)
+// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		// Prepare WebsiteInsert struct with updated values
+// 		websiteInsert := models.WebsiteInsert{
+// 			Domain:    websiteUpdate.Domain,
+// 			UserID:    int(existingWebsite.UserID.Int64), // keep existing user_id if not changed
+// 			UpdatedAt: time.Now(),
+// 		}
+
+// 		// Perform the update query
+// 		updateQuery := "UPDATE websites SET domain = $1, user_id = $2, updated_at = $3 WHERE id = $4"
+// 		result, err := db.Exec(updateQuery, websiteInsert.Domain, websiteInsert.UserID, websiteInsert.UpdatedAt, id)
+// 		if err != nil {
+// 			log.Println("Error updating website:", err)
+// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		rowsAffected, err := result.RowsAffected()
+// 		if err != nil {
+// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		if rowsAffected == 0 {
+// 			http.Error(w, "No changes made to the website", http.StatusNotModified)
+// 			return
+// 		}
+
+// 		// Prepare response
+// 		websiteUpdateResponse := models.WebsiteUpdateResponse{
+// 			ID:     int64(id),
+// 			Domain: websiteInsert.Domain,
+// 			UserID: websiteInsert.UserID,
+// 		}
+
+// 		// Send JSON response
+// 		w.Header().Set("Content-Type", "application/json")
+// 		w.WriteHeader(http.StatusOK)
+// 		if err := json.NewEncoder(w).Encode(websiteUpdateResponse); err != nil {
+// 			log.Println("Error encoding response:", err)
+// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// 		}
+// 	}
+// }
