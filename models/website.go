@@ -14,6 +14,10 @@ type Website struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
+type WebsiteReceiver struct {
+	Domain string `json:"domain"`
+}
+
 type WebsiteInsert struct {
 	Domain    string    `json:"domain"`
 	UserID    int       `json:"userId"` // Foreign key to User model
