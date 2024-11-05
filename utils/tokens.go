@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -35,37 +36,52 @@ var (
 	RefreshTokenExpiration = NewExpirationTime(14 * 24 * time.Hour)
 )
 
-func ValidateToken(tokenString string) (*jwt.Token, error) {
-	//todo get secret from env
-	secret := "my_secret_key"
+// ValidateTokenAndExtractClaims parses and validates the token, checks expiration, and returns the claims if valid.
+func ValidateTokenAndExtractClaims(tokenString string) (jwt.MapClaims, error) {
+	// Get the secret from environment variables (recommended for production)
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		// Fallback for development; avoid hardcoding in production.
+		secret = "my_secret_key"
+	}
 
+	// Parse the token with the secret key
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Ensure the token method is HMAC (common for JWT)
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(secret), nil
 	})
 
+	// Handle parsing errors
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		// Check if the token is expired
-		if exp, ok := claims["expiresAt"].(float64); ok {
-			if time.Now().Unix() > int64(exp) {
-				return nil, fmt.Errorf("token is expired")
-			}
+	// Extract claims and check if token is valid
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// Check for expiration in claims
+	if exp, ok := claims["expiresAt"].(float64); ok {
+		if time.Now().Unix() > int64(exp) {
+			return nil, fmt.Errorf("token is expired")
 		}
-		return token, nil
 	}
 
-	return nil, fmt.Errorf("invalid token")
+	return claims, nil
 }
 
 func CreateAccessToken(userID int, role string, name string, email string) (string, error) {
-	//todo get secret from env
-	secret := "my_secret_key"
+	// Get the secret from environment variables (recommended for production)
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		// Fallback for development; avoid hardcoding in production.
+		secret = "my_secret_key"
+	}
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
@@ -81,8 +97,12 @@ func CreateAccessToken(userID int, role string, name string, email string) (stri
 }
 
 func CreateRefreshToken(userID int) (string, error) {
-	//todo get secret from env
-	secret := "my_secret_key"
+	// Get the secret from environment variables (recommended for production)
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		// Fallback for development; avoid hardcoding in production.
+		secret = "my_secret_key"
+	}
 
 	// Create the Claims
 	claims := &jwt.MapClaims{

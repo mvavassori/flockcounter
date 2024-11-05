@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/mvavassori/bare-analytics/utils"
 )
 
@@ -31,30 +30,34 @@ func AdminOrAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		token, err := utils.ValidateToken(parts[1])
+		// Validate the token and extract claims
+		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			log.Println("Token validation error:", err)
+			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
-		if !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// Extract user ID and role from claims
+		userId, ok := claims["userId"].(float64)
+		if !ok {
+			http.Error(w, "Invalid token payload", http.StatusUnauthorized)
 			return
 		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		userId := int(claims["userId"].(float64))
-		role := claims["role"].(string)
+		role, ok := claims["role"].(string)
+		if !ok {
+			http.Error(w, "Invalid token payload", http.StatusUnauthorized)
+			return
+		}
 
 		// Check if the user is logged in or is an admin
-		if userId <= 0 && role != "admin" {
+		if role != "admin" && int(userId) <= 0 {
 			http.Error(w, "Unauthorized access", http.StatusUnauthorized)
 			return
 		}
 
-		// Add the userId and role to the context so that the next handler can access them (e.g., the GetUser function)
-		ctx := context.WithValue(r.Context(), UserIdKey, userId)
+		// Add userId and role to context
+		ctx := context.WithValue(r.Context(), UserIdKey, int(userId))
 		ctx = context.WithValue(ctx, RoleKey, role)
 
 		// This line is responsible for passing the request to the next handler in the chain (e.g., the GetUser function) after the middleware has done its job.
@@ -76,19 +79,14 @@ func Admin(next http.Handler) http.Handler {
 			return
 		}
 
-		token, err := utils.ValidateToken(parts[1])
+		// Validate the token and extract claims
+		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			log.Println("Token validation error:", err)
+			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
-		if !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
 		role := claims["role"].(string)
 		if role != "admin" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -119,19 +117,14 @@ func AdminOrOwner(next http.Handler) http.Handler {
 			return
 		}
 
-		token, err := utils.ValidateToken(parts[1])
+		// Validate the token and extract claims
+		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			log.Println("Token validation error:", err)
+			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
-		if !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
 		userId := int(claims["userId"].(float64))
 		role := claims["role"].(string)
 
@@ -167,19 +160,14 @@ func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 				return
 			}
 
-			token, err := utils.ValidateToken(parts[1])
+			// Validate the token and extract claims
+			claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				log.Println("Token validation error:", err)
+				http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 				return
 			}
 
-			if !token.Valid {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
-
-			claims := token.Claims.(jwt.MapClaims)
 			userID := int(claims["userId"].(float64))
 			role := claims["role"].(string)
 
@@ -212,6 +200,11 @@ func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 					isOwner = true
 					break
 				}
+			}
+
+			if len(websiteDomains) == 0 && !isAdmin {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
 			}
 
 			if !isAdmin && !isOwner {
