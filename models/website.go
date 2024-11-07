@@ -15,7 +15,7 @@ type Website struct {
 }
 
 type WebsiteReceiver struct {
-	Domain string `json:"domain"`
+	URL string `json:"url"`
 }
 
 type WebsiteInsert struct {

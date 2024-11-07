@@ -3,9 +3,11 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/mvavassori/bare-analytics/middleware"
@@ -151,7 +153,7 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 		// Get the userId from the context
 		userId, ok := r.Context().Value(middleware.UserIdKey).(int)
 		if !ok {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal Server Error"))
 			return
 		}
 
@@ -159,32 +161,47 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 		var websiteReceiver models.WebsiteReceiver
 		if err := json.NewDecoder(r.Body).Decode(&websiteReceiver); err != nil {
 			log.Println("Error decoding JSON:", err)
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid request format"))
+			return
+		}
+		// Check that URL is not empty
+		if websiteReceiver.URL == "" {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("URL cannot be empty"))
 			return
 		}
 
+		// Parse and validate the URL
+		parsedURL, err := url.Parse(websiteReceiver.URL)
+		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
+			log.Println("Invalid URL format:", websiteReceiver.URL)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid URL format"))
+			return
+		}
+
+		domain := parsedURL.Hostname()
+
 		// Check if a website with the same domain already exists in the database
 		var existingDomain string
-		err := db.QueryRow(`
+		err = db.QueryRow(`
 			SELECT domain
 			FROM websites
 			WHERE domain = $1
-		`, websiteReceiver.Domain).Scan(&existingDomain)
+		`, domain).Scan(&existingDomain)
 
 		if err == nil {
 			// If a website with the same domain already exists, return a conflict error
-			http.Error(w, "Domain already exists", http.StatusConflict)
+			utils.WriteErrorResponse(w, http.StatusConflict, errors.New("domain already exists"))
 			return
 		} else if err != sql.ErrNoRows {
 			// If there was an error executing the query, return an internal server error
 			log.Println("Error checking for existing domain:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		// Map data to WebsiteInsert struct and set timestamps
 		websiteInsert := models.WebsiteInsert{
-			Domain:    websiteReceiver.Domain,
+			Domain:    domain,
 			UserID:    userId,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -197,12 +214,15 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 		)
 		if err != nil {
 			log.Println("Error inserting website:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		fmt.Fprintf(w, "Website created successfully")
+		json.NewEncoder(w).Encode(map[string]string{
+			"domain":  domain,
+			"message": "Website created successfully",
+		})
 	}
 }
 
