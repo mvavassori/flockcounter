@@ -228,18 +228,41 @@ func CreateWebsite(db *sql.DB) http.HandlerFunc {
 
 func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the domain from the url
+		// Extract the domain from the URL
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Delete the website from the database
-		result, err := db.Exec("DELETE FROM websites WHERE domain = $1", domain)
+		// Begin a transaction to ensure atomicity
+		tx, err := db.Begin()
+		if err != nil {
+			log.Println("Error beginning transaction:", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		// Ensure transaction rollback in case of an error
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// Delete associated visits from the visits table (ignoring row count)
+		_, err = tx.Exec("DELETE FROM visits WHERE website_domain = $1", domain)
+		if err != nil {
+			log.Println("Error deleting visits:", err)
+			http.Error(w, "Error deleting visits", http.StatusInternalServerError)
+			return
+		}
+
+		// Delete the website from the websites table
+		result, err := tx.Exec("DELETE FROM websites WHERE domain = $1", domain)
 		if err != nil {
 			log.Println("Error deleting website:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Error deleting website", http.StatusInternalServerError)
 			return
 		}
 
@@ -254,9 +277,15 @@ func DeleteWebsite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// return a 200 response
+		// Commit the transaction if both deletes are successful
+		if err = tx.Commit(); err != nil {
+			log.Println("Error committing transaction:", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Website deleted successfully")
+		fmt.Fprintf(w, "Website and associated visits deleted successfully")
 	}
 }
 
