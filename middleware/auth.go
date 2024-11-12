@@ -148,6 +148,21 @@ func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Check if the domain exists in the database
+			var domainExists bool
+			err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM websites WHERE domain = $1)", urlWebsiteDomain).Scan(&domainExists)
+			if err != nil {
+				log.Println("Error checking domain existence:", err)
+				http.Error(w, "Error checking domain", http.StatusInternalServerError)
+				return
+			}
+
+			// If domain doesn't exist, return a 404 Not Found
+			if !domainExists {
+				http.Error(w, "Website not found", http.StatusNotFound)
+				return
+			}
+
 			tokenString := r.Header.Get("Authorization")
 			if tokenString == "" {
 				http.Error(w, "Authorization header required", http.StatusUnauthorized)

@@ -28,20 +28,6 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -462,20 +448,6 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -618,20 +590,6 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -780,20 +738,6 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -888,20 +832,6 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -1002,20 +932,6 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -1110,20 +1026,6 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
@@ -1272,20 +1174,6 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -1431,20 +1319,6 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
-			return
-		}
-
 		// Extract start and end dates from the request query parameters
 		startDate := r.URL.Query().Get("startDate")
 		endDate := r.URL.Query().Get("endDate")
@@ -1587,20 +1461,6 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		domain, err := utils.ExtractDomainFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Check if the website exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
-		if err != nil {
-			log.Println("Error checking website existence:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !exists {
-			http.Error(w, fmt.Sprintf("Website with domain %s doesn't exist", domain), http.StatusNotFound)
 			return
 		}
 
