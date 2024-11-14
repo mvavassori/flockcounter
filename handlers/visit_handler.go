@@ -23,7 +23,7 @@ import (
 func GetVisits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		// Perform the SELECT query to get all visits
-		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, time_spent_on_page, is_unique FROM visits")
+		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, time_spent_on_page, is_unique, utm_source, utm_medium, utm_campaign, utm_term, utm_content FROM visits")
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -37,7 +37,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
 			var visit models.Visit
-			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.Region, &visit.City, &visit.TimeSpentOnPage, &visit.IsUnique)
+			err := rows.Scan(&visit.ID, &visit.WebsiteID, &visit.WebsiteDomain, &visit.Timestamp, &visit.Referrer, &visit.URL, &visit.Pathname, &visit.DeviceType, &visit.OS, &visit.Browser, &visit.Language, &visit.Country, &visit.Region, &visit.City, &visit.TimeSpentOnPage, &visit.IsUnique, &visit.UTMSource, &visit.UTMMedium, &visit.UTMCampaign, &visit.UTMTerm, &visit.UTMContent)
 			if err != nil {
 				log.Println("Error scanning visit:", err)
 				http.Error(w, "Error scanning visit", http.StatusInternalServerError)
@@ -100,6 +100,11 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 			&visit.City,
 			&visit.TimeSpentOnPage,
 			&visit.IsUnique,
+			&visit.UTMSource,
+			&visit.UTMMedium,
+			&visit.UTMCampaign,
+			&visit.UTMTerm,
+			&visit.UTMContent,
 		)
 
 		if err == sql.ErrNoRows {
@@ -129,18 +134,7 @@ func GetVisit(db *sql.DB) http.HandlerFunc {
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		// fmt.Println(time.Now())
-		// textData, err := io.ReadAll(r.Body)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusBadRequest)
-		// 	return
-		// }
-
-		// // Print the text data
-		// fmt.Println("Received text data:")
-		// fmt.Println(string(textData))
-
-		// todo
+		// todo uncomment this when in production
 		// //Get IP address
 		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		// if err != nil {
@@ -156,11 +150,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			log.Fatal("Error getting home directory:", err)
 		}
 
-		// fmt.Println("Home directory:", homeDir)
 		// Construct full path to GeoLite2-City.mmdb file
 		dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
-
-		// fmt.Println("Database path:", dbPath)
 
 		geoip2DB, err := geoip2.Open(dbPath)
 		if err != nil {
@@ -170,7 +161,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// todo: enable this in production
 		// parsedIP := net.ParseIP(ip)
-		// for testing
+
+		// for testing just use this one ip address
 		parsedIP := net.ParseIP("151.30.13.167")
 
 		if parsedIP == nil {
@@ -178,8 +170,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Invalid IP format", http.StatusBadRequest)
 			return
 		}
-
-		// fmt.Println("Parsed IP:", parsedIP)
 
 		record, err := geoip2DB.City(parsedIP)
 		if err != nil {
@@ -232,6 +222,12 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		domain := url.Hostname()
 
+		utmSource := url.Query().Get("utm_source")
+		utmMedium := url.Query().Get("utm_medium")
+		utmCampaign := url.Query().Get("utm_campaign")
+		utmTerm := url.Query().Get("utm_term")
+		utmContent := url.Query().Get("utm_content")
+
 		// extract the referrer
 		referrer := visitReceiver.Referrer
 
@@ -276,8 +272,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// fmt.Println(uniqueIdentifier)
-
 		// Check if the unique identifier exists in the daily_unique_identifiers table
 		var isUnique bool
 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
@@ -301,6 +295,8 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			isUnique = true
 		}
 
+		fmt.Println("UTMSource", utmSource)
+
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
 			Timestamp:       visitReceiver.Timestamp,
@@ -316,14 +312,19 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			City:            city,
 			IsUnique:        isUnique,
 			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
+			UTMSource:       utmSource,
+			UTMMedium:       utmMedium,
+			UTMCampaign:     utmCampaign,
+			UTMTerm:         utmTerm,
+			UTMContent:      utmContent,
 		}
 
 		// Perform the INSERT query to add the new visit to the database
 		insertQuery := `
 			INSERT INTO visits
-				(website_id, website_domain , timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique, time_spent_on_page)
+				(website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, is_unique, time_spent_on_page, utm_source, utm_medium, utm_campaign, utm_term, utm_content)
 			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
 		`
 		_, err = db.Exec(insertQuery,
 			websiteId,
@@ -341,6 +342,11 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			visit.City,
 			visit.IsUnique,
 			visit.TimeSpentOnPage,
+			visit.UTMSource,
+			visit.UTMMedium,
+			visit.UTMCampaign,
+			visit.UTMTerm,
+			visit.UTMContent,
 		)
 		if err != nil {
 			fmt.Println("Error inserting visit:", err)

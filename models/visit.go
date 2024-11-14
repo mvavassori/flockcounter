@@ -19,6 +19,11 @@ type Visit struct {
 	City            string    `json:"city"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
 	IsUnique        bool      `json:"isUnique"`
+	UTMSource       string    `json:"utmSource"`
+	UTMMedium       string    `json:"utmMedium"`
+	UTMCampaign     string    `json:"utmCampaign"`
+	UTMTerm         string    `json:"utmTerm"`
+	UTMContent      string    `json:"utmContent"`
 }
 
 type VisitReceiver struct {
@@ -32,7 +37,7 @@ type VisitReceiver struct {
 }
 
 type VisitInsert struct {
-	WebsiteID       int       `json:"websiteId"` // todo: check if this is necessary
+	WebsiteID       int       `json:"websiteId"`
 	WebsiteDomain   string    `json:"websiteDomain"`
 	Timestamp       time.Time `json:"timestamp"`
 	Referrer        string    `json:"referrer"`
@@ -47,6 +52,11 @@ type VisitInsert struct {
 	City            string    `json:"city"`
 	TimeSpentOnPage int       `json:"timeSpentOnPage"`
 	IsUnique        bool      `json:"isUnique"`
+	UTMSource       string    `json:"utmSource"`
+	UTMMedium       string    `json:"utmMedium"`
+	UTMCampaign     string    `json:"utmCampaign"`
+	UTMTerm         string    `json:"utmTerm"`
+	UTMContent      string    `json:"utmContent"`
 }
 
 type VisitUpdateResponse struct {
