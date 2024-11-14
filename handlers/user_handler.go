@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,12 +18,26 @@ import (
 )
 
 func GetUsers(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		rows, err := db.Query(`
-			SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at , websites.id, websites.domain, websites.user_id
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		// Extract limit and offset from query string
+		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+		if err != nil || limit <= 0 {
+			limit = 10 // default limit
+		}
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil || offset < 0 {
+			offset = 0 // default offset
+		}
+
+		// Prepare the SQL query with LIMIT and OFFSET
+		query := `
+			SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at, websites.id, websites.domain, websites.user_id
 			FROM users
 			LEFT JOIN websites ON users.id = websites.user_id
-		`)
+			LIMIT $1 OFFSET $2
+		`
+		rows, err := db.Query(query, limit, offset)
 		if err != nil {
 			log.Println("Error querying users:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -64,10 +79,6 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 			usersSlice = append(usersSlice, *user)
 		}
 
-		// w.Header().Set("Content-Type", "application/json")
-		// json.NewEncoder(w).Encode(usersSlice)
-
-		// Now, 'userSlice' contains all the retrieved users
 		jsonResponse, err := json.Marshal(usersSlice)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
@@ -75,7 +86,6 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Set response headers and write the JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
@@ -143,7 +153,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			if activeSubscription != nil {
 				expiryDate := time.Unix(activeSubscription.CurrentPeriodEnd, 0)
 				subscriptionExpiryDate = expiryDate.Format("2006-01-02")
-				fmt.Printf("Subscription ID: %s, Expires at: %s\n", activeSubscription.ID, subscriptionExpiryDate)
+				// fmt.Printf("Subscription ID: %s, Expires at: %s\n", activeSubscription.ID, subscriptionExpiryDate)
 			}
 		}
 
@@ -202,7 +212,7 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		if err == nil {
 			// If a user with the same email already exists, return a conflict error
 			// http.Error(w, "Conflict", http.StatusConflict)
-			utils.WriteErrorResponse(w, http.StatusConflict, errors.New("Conflict"))
+			utils.WriteErrorResponse(w, http.StatusConflict, errors.New("this email is already taken"))
 			return
 		} else if err != sql.ErrNoRows {
 			// If there was an error executing the query, return an internal server error
