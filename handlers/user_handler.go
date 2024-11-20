@@ -182,22 +182,20 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		// Decode the JSON in the request body into the user struct
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid request body"))
 			return
 		}
 
 		// Set the role based on the isAdmin parameter
+		user.Role = "user"
 		if isAdmin {
 			user.Role = "admin"
-		} else {
-			user.Role = "user"
 		}
 
 		// Validate the user struct
 		err = user.Validate()
 		if err != nil {
-			// http.Error(w, err.Error(), http.StatusBadRequest)
-			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -210,14 +208,11 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		`, user.Email).Scan(&existingEmail)
 
 		if err == nil {
-			// If a user with the same email already exists, return a conflict error
-			// http.Error(w, "Conflict", http.StatusConflict)
 			utils.WriteErrorResponse(w, http.StatusConflict, errors.New("this email is already taken"))
 			return
 		} else if err != sql.ErrNoRows {
-			// If there was an error executing the query, return an internal server error
 			log.Println("Error checking for existing email:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
@@ -225,15 +220,9 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Println("Error hashing password:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
-
-		// Insert the user into the database
-		// result, err := db.Exec(`
-		// 	INSERT INTO users (name, email, password)
-		// 	VALUES ($1, $2, $3)
-		// `, user.Name, user.Email, user.Password)
 
 		now := time.Now()
 
@@ -247,19 +236,9 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 
 		if err != nil {
 			log.Println("Error inserting user:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
-
-		// Generate a token for the new user
-		// tokenString, err := utils.CreateToken(int(userID))
-		// if err != nil {
-		// 	log.Println("Error creating token:", err)
-		// 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		// 	return
-		// }
-
-		// fmt.Println("Token:", tokenString)
 
 		w.WriteHeader(http.StatusCreated)
 	}
@@ -355,15 +334,14 @@ func Login(db *sql.DB) http.HandlerFunc {
 		// Decode the JSON in the request body into the user struct
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid request body"))
 			return
 		}
 
 		// Validate the user struct
 		err = user.ValidateLogin()
 		if err != nil {
-			// http.Error(w, err.Error(), http.StatusBadRequest)
-			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -375,15 +353,19 @@ func Login(db *sql.DB) http.HandlerFunc {
 		var email string
 		err = db.QueryRow("SELECT id, password, role, name, email FROM users WHERE email = $1", user.Email).Scan(&id, &hashedPassword, &role, &name, &email)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				// If no rows are found, the email is incorrect, so return an invalid credentials message
+				utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid credentials"))
+				return
+			}
 			log.Println("Error getting user:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		// Compare the hashed password with the plain text password
 		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
 		if err != nil {
-			// http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid credentials"))
 			return
 		}
@@ -392,14 +374,14 @@ func Login(db *sql.DB) http.HandlerFunc {
 		accessToken, err := utils.CreateAccessToken(id, role, name, email)
 		if err != nil {
 			log.Println("Error creating access token:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		refreshToken, err := utils.CreateRefreshToken(id)
 		if err != nil {
 			log.Println("Error creating refresh token:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
@@ -407,7 +389,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		_, err = db.Exec("DELETE FROM refresh_tokens WHERE user_id = $1", id)
 		if err != nil {
 			log.Println("Error invalidating refresh tokens:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
@@ -415,7 +397,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		_, err = db.Exec("INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)", refreshToken, id, utils.RefreshTokenExpiration.Time())
 		if err != nil {
 			log.Println("Error storing refresh token:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
@@ -439,7 +421,7 @@ func Login(db *sql.DB) http.HandlerFunc {
 		response, err := json.Marshal(data)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 

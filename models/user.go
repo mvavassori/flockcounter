@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/mail"
 	"time"
-)
 
-// todo:fix stuff here
+	"github.com/mvavassori/bare-analytics/utils"
+)
 
 type User struct {
 	ID                 int            `json:"id"`
@@ -48,6 +48,9 @@ func (u *UserInsert) Validate() error {
 	if u.Name == "" {
 		return errors.New("name is required")
 	}
+	if len(u.Name) < 2 || len(u.Name) > 50 {
+		return errors.New("name must be between 2 and 50 characters")
+	}
 	if u.Email == "" {
 		return errors.New("email is required")
 	}
@@ -57,7 +60,12 @@ func (u *UserInsert) Validate() error {
 	if u.Password == "" {
 		return errors.New("password is required")
 	}
-	// Add more validation rules as needed
+	if len(u.Password) < 6 { // todo change this to 8
+		return errors.New("password must be at least 8 characters long")
+	}
+	if !utils.HasSpecialChar(u.Password) || !utils.HasNumber(u.Password) || !utils.HasUppercase(u.Password) {
+		return errors.New("password must contain at least one uppercase letter, one number, and one special character")
+	}
 	return nil
 }
 
@@ -71,6 +79,5 @@ func (u *UserLogin) ValidateLogin() error {
 	if u.Password == "" {
 		return errors.New("password is required")
 	}
-	// Add more validation rules as needed
 	return nil
 }

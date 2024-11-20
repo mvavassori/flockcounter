@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"time"
@@ -94,4 +95,17 @@ func SortByPeriod(slice []map[string]interface{}, interval string) {
 		t2, _ := time.Parse(layout, slice[j]["period"].(string))
 		return t1.Before(t2)
 	})
+}
+
+// Helper Functions for Password Rules
+func HasSpecialChar(s string) bool {
+	return regexp.MustCompile(`[!@#$%^&*(),.?":{}|<>]`).MatchString(s)
+}
+
+func HasNumber(s string) bool {
+	return regexp.MustCompile(`[0-9]`).MatchString(s)
+}
+
+func HasUppercase(s string) bool {
+	return regexp.MustCompile(`[A-Z]`).MatchString(s)
 }
