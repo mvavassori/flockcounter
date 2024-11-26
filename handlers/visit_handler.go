@@ -67,70 +67,6 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func GetVisit(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the value of the 'id' variable from the URL path
-		id, err := utils.ExtractIDFromURL(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Perform the SELECT query to get the visit with the specified ID
-		row := db.QueryRow("SELECT * FROM visits WHERE id = $1", id)
-
-		// Create a Visit struct to hold the retrieved data
-		var visit models.Visit
-		// row.Scan copies the column values from the matched row into the provided variables, each field in the Visit struct corresponds to a column in the "visits" table.
-		// It reads the values from the database row and populates the fields in the visit variable.
-		err = row.Scan(
-			&visit.ID,
-			&visit.WebsiteID,
-			&visit.WebsiteDomain,
-			&visit.Timestamp,
-			&visit.Referrer,
-			&visit.URL,
-			&visit.Pathname,
-			&visit.DeviceType,
-			&visit.OS,
-			&visit.Browser,
-			&visit.Language,
-			&visit.Country,
-			&visit.Region,
-			&visit.City,
-			&visit.TimeSpentOnPage,
-			&visit.IsUnique,
-			&visit.UTMSource,
-			&visit.UTMMedium,
-			&visit.UTMCampaign,
-			&visit.UTMTerm,
-			&visit.UTMContent,
-		)
-
-		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Visit with id %d doesn't exist", id), http.StatusNotFound)
-			return
-		} else if err != nil {
-			log.Println("Error retrieving visit:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Marshal the visit data to JSON
-		jsonResponse, err := json.Marshal(visit)
-		if err != nil {
-			log.Println("Error encoding JSON:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Set response headers and write the JSON response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
-	}
-}
-
 func CreateVisit(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -295,8 +231,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			isUnique = true
 		}
 
-		fmt.Println("UTMSource", utmSource)
-
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
 			Timestamp:       visitReceiver.Timestamp,
@@ -312,11 +246,26 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			City:            city,
 			IsUnique:        isUnique,
 			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
-			UTMSource:       utmSource,
-			UTMMedium:       utmMedium,
-			UTMCampaign:     utmCampaign,
-			UTMTerm:         utmTerm,
-			UTMContent:      utmContent,
+			UTMSource: sql.NullString{
+				String: utmSource,
+				Valid:  utmSource != "",
+			},
+			UTMMedium: sql.NullString{
+				String: utmMedium,
+				Valid:  utmMedium != "",
+			},
+			UTMCampaign: sql.NullString{
+				String: utmCampaign,
+				Valid:  utmCampaign != "",
+			},
+			UTMTerm: sql.NullString{
+				String: utmTerm,
+				Valid:  utmTerm != "",
+			},
+			UTMContent: sql.NullString{
+				String: utmContent,
+				Valid:  utmContent != "",
+			},
 		}
 
 		// Perform the INSERT query to add the new visit to the database
@@ -354,108 +303,6 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-	}
-}
-
-func UpdateVisit(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract the value of the 'id' variable from the URL path
-		id, err := utils.ExtractIDFromURL(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Read the request body to get the updated visit data
-		var updatedVisit models.VisitInsert
-		err = json.NewDecoder(r.Body).Decode(&updatedVisit)
-		if err != nil {
-			log.Println("Error decoding JSON:", err)
-			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
-			return
-		}
-
-		url, err := url.Parse(updatedVisit.URL)
-		if err != nil {
-			log.Println("Error parsing URL", err)
-			http.Error(w, "Invalid URL format", http.StatusBadRequest)
-			return
-		}
-		domain := url.Hostname()
-
-		fmt.Println(domain)
-
-		// Look up the websiteId using the domain
-		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		if err != nil {
-			log.Println("Error looking up websiteId", err)
-			http.Error(w, "Website not found", http.StatusNotFound)
-			return
-		}
-
-		updateQuery := `
-			UPDATE visits
-			SET website_id = $1, website_domain = $2, timestamp = $3, referrer = $4, url = $5, pathname = $6, device_type = $7, os = $8, browser = $9, language = $10, country = $11, region = $12, city = $13, is_unique = $14, time_spent_on_page = $15
-			WHERE id = $16;
-		`
-		// Perform the UPDATE query to modify the visit with the specified ID
-		result, err := db.Exec(updateQuery,
-			websiteId,
-			domain,
-			updatedVisit.Timestamp,
-			updatedVisit.Referrer,
-			updatedVisit.URL,
-			updatedVisit.Pathname,
-			updatedVisit.DeviceType,
-			updatedVisit.OS,
-			updatedVisit.Browser,
-			updatedVisit.Language,
-			updatedVisit.Country,
-			updatedVisit.Region,
-			updatedVisit.City,
-			updatedVisit.IsUnique,
-			updatedVisit.TimeSpentOnPage,
-			id,
-		)
-		if err != nil {
-			log.Println("Error updating visit:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Check if the visit with the specified ID exists
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		if rowsAffected == 0 {
-			http.Error(w, fmt.Sprintf("Visit with id %d doesn't exist", id), http.StatusNotFound)
-			return
-		}
-
-		// Create a VisitUpdateResponse object to return in the response
-		visitUpdateResponse := models.VisitUpdateResponse{
-			VisitInsert:   updatedVisit,
-			ID:            int(id),
-			WebsiteID:     int(websiteId),
-			WebsiteDomain: domain,
-		}
-
-		// Convert the visitResponse object to JSON
-		jsonResponse, err := json.Marshal(visitUpdateResponse)
-		if err != nil {
-			log.Println("Error encoding JSON:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Set the content type header and write the response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
 	}
 }
 

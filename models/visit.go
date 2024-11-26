@@ -1,29 +1,32 @@
 package models
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type Visit struct {
-	ID              int       `json:"id"`
-	WebsiteID       int       `json:"websiteId"` // Foreign key to Website model
-	WebsiteDomain   string    `json:"websiteDomain"`
-	Timestamp       time.Time `json:"timestamp"`
-	Referrer        string    `json:"referrer"`
-	URL             string    `json:"url"`
-	Pathname        string    `json:"pathname"`
-	DeviceType      string    `json:"deviceType"`
-	OS              string    `json:"os"`
-	Browser         string    `json:"browser"`
-	Language        string    `json:"language"`
-	Country         string    `json:"country"`
-	Region          string    `json:"region"`
-	City            string    `json:"city"`
-	TimeSpentOnPage int       `json:"timeSpentOnPage"`
-	IsUnique        bool      `json:"isUnique"`
-	UTMSource       string    `json:"utmSource"`
-	UTMMedium       string    `json:"utmMedium"`
-	UTMCampaign     string    `json:"utmCampaign"`
-	UTMTerm         string    `json:"utmTerm"`
-	UTMContent      string    `json:"utmContent"`
+	ID              int            `json:"id"`
+	WebsiteID       int            `json:"websiteId"` // Foreign key to Website model
+	WebsiteDomain   string         `json:"websiteDomain"`
+	Timestamp       time.Time      `json:"timestamp"`
+	Referrer        string         `json:"referrer"`
+	URL             string         `json:"url"`
+	Pathname        string         `json:"pathname"`
+	DeviceType      string         `json:"deviceType"`
+	OS              string         `json:"os"`
+	Browser         string         `json:"browser"`
+	Language        string         `json:"language"`
+	Country         string         `json:"country"`
+	Region          string         `json:"region"`
+	City            string         `json:"city"`
+	TimeSpentOnPage int            `json:"timeSpentOnPage"`
+	IsUnique        bool           `json:"isUnique"`
+	UTMSource       sql.NullString `json:"utmSource"`
+	UTMMedium       sql.NullString `json:"utmMedium"`
+	UTMCampaign     sql.NullString `json:"utmCampaign"`
+	UTMTerm         sql.NullString `json:"utmTerm"`
+	UTMContent      sql.NullString `json:"utmContent"`
 }
 
 type VisitReceiver struct {
@@ -37,26 +40,26 @@ type VisitReceiver struct {
 }
 
 type VisitInsert struct {
-	WebsiteID       int       `json:"websiteId"`
-	WebsiteDomain   string    `json:"websiteDomain"`
-	Timestamp       time.Time `json:"timestamp"`
-	Referrer        string    `json:"referrer"`
-	URL             string    `json:"url"`
-	Pathname        string    `json:"pathname"`
-	DeviceType      string    `json:"deviceType"`
-	OS              string    `json:"os"`
-	Browser         string    `json:"browser"`
-	Language        string    `json:"language"`
-	Country         string    `json:"country"`
-	Region          string    `json:"region"`
-	City            string    `json:"city"`
-	TimeSpentOnPage int       `json:"timeSpentOnPage"`
-	IsUnique        bool      `json:"isUnique"`
-	UTMSource       string    `json:"utmSource"`
-	UTMMedium       string    `json:"utmMedium"`
-	UTMCampaign     string    `json:"utmCampaign"`
-	UTMTerm         string    `json:"utmTerm"`
-	UTMContent      string    `json:"utmContent"`
+	WebsiteID       int            `json:"websiteId"`
+	WebsiteDomain   string         `json:"websiteDomain"`
+	Timestamp       time.Time      `json:"timestamp"`
+	Referrer        string         `json:"referrer"`
+	URL             string         `json:"url"`
+	Pathname        string         `json:"pathname"`
+	DeviceType      string         `json:"deviceType"`
+	OS              string         `json:"os"`
+	Browser         string         `json:"browser"`
+	Language        string         `json:"language"`
+	Country         string         `json:"country"`
+	Region          string         `json:"region"`
+	City            string         `json:"city"`
+	TimeSpentOnPage int            `json:"timeSpentOnPage"`
+	IsUnique        bool           `json:"isUnique"`
+	UTMSource       sql.NullString `json:"utmSource"`
+	UTMMedium       sql.NullString `json:"utmMedium"`
+	UTMCampaign     sql.NullString `json:"utmCampaign"`
+	UTMTerm         sql.NullString `json:"utmTerm"`
+	UTMContent      sql.NullString `json:"utmContent"`
 }
 
 type VisitUpdateResponse struct {
