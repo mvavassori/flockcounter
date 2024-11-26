@@ -14,9 +14,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 
 	// visit routes
 	router.Handle("/api/visits", middleware.Admin(handlers.GetVisits(db))).Methods("GET")
-	router.Handle("/api/visit/{id}", middleware.Admin(handlers.GetVisit(db))).Methods("GET")
 	router.HandleFunc("/api/visit", handlers.CreateVisit(db)).Methods("POST")
-	router.Handle("/api/visit/{id}", middleware.Admin(handlers.UpdateVisit(db))).Methods("PUT")
 	router.Handle("/api/visit/{id}", middleware.Admin(handlers.DeleteVisit(db))).Methods("DELETE")
 
 	// user routes
@@ -37,7 +35,6 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	// website routes
 	router.Handle("/api/websites", middleware.Admin(handlers.GetWebsites(db))).Methods("GET")
 	router.Handle("/api/websites/user/{id}", middleware.AdminOrOwner(handlers.GetUserWebsites(db))).Methods("GET")
-	router.Handle("/api/website/{id}", middleware.AdminOrOwner(handlers.GetWebsite(db))).Methods("GET")
 	router.Handle("/api/website", middleware.AdminOrAuth(handlers.CreateWebsite(db))).Methods("POST")
 	// router.Handle("/api/website/{domain}", middleware.AdminOrUserWebsite(db)(handlers.UpdateWebsite(db))).Methods("PUT")
 	router.Handle("/api/website/{domain}", middleware.AdminOrUserWebsite(db)(handlers.DeleteWebsite(db))).Methods("DELETE")
@@ -53,6 +50,12 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/dashboard/countries/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetCountries(db))).Methods("GET")
 	router.Handle("/api/dashboard/regions/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetRegions(db))).Methods("GET")
 	router.Handle("/api/dashboard/cities/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetCities(db))).Methods("GET")
+	router.Handle("/api/dashboard/cities/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetCities(db))).Methods("GET")
+	router.Handle("/api/dashboard/utm_sources/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMSuorces(db))).Methods("GET")
+	router.Handle("/api/dashboard/utm_mediums/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMMediums(db))).Methods("GET")
+	router.Handle("/api/dashboard/utm_campaigns/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMCampaigns(db))).Methods("GET")
+	router.Handle("/api/dashboard/utm_terms/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMTerms(db))).Methods("GET")
+	router.Handle("/api/dashboard/utm_contents/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMContents(db))).Methods("GET")
 
 	// events routes
 	router.Handle("/api/events/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetEvents(db))).Methods("GET")
