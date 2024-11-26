@@ -51,27 +51,17 @@ type GetUserResponse struct {
 }
 
 func (u *User) MarshalJSON() ([]byte, error) {
-	var stripeCustomerID string
-	if u.StripeCustomerID.Valid {
-		stripeCustomerID = u.StripeCustomerID.String
-	}
-
-	var subscriptionPlan string
-	if u.SubscriptionPlan.Valid {
-		subscriptionPlan = u.SubscriptionPlan.String
-	}
-
 	return json.Marshal(&struct {
-		ID                 int       `json:"id"`
-		Name               string    `json:"name"`
-		Email              string    `json:"email"`
-		Websites           []Website `json:"websites"`
-		CreatedAt          time.Time `json:"created_at"`
-		UpdatedAt          time.Time `json:"updated_at"`
-		Role               string    `json:"role"`
-		StripeCustomerID   string    `json:"stripe_customer_id,omitempty"`
-		SubscriptionStatus string    `json:"subscription_status"`
-		SubscriptionPlan   string    `json:"subscription_plan,omitempty"`
+		ID                 int         `json:"id"`
+		Name               string      `json:"name"`
+		Email              string      `json:"email"`
+		Websites           []Website   `json:"websites"`
+		CreatedAt          time.Time   `json:"created_at"`
+		UpdatedAt          time.Time   `json:"updated_at"`
+		Role               string      `json:"role"`
+		StripeCustomerID   interface{} `json:"stripe_customer_id,omitempty"`
+		SubscriptionStatus string      `json:"subscription_status"`
+		SubscriptionPlan   interface{} `json:"subscription_plan,omitempty"`
 	}{
 		ID:                 u.ID,
 		Name:               u.Name,
@@ -80,9 +70,9 @@ func (u *User) MarshalJSON() ([]byte, error) {
 		CreatedAt:          u.CreatedAt,
 		UpdatedAt:          u.UpdatedAt,
 		Role:               u.Role,
-		StripeCustomerID:   stripeCustomerID,
+		StripeCustomerID:   utils.NullableStringToJSON(u.StripeCustomerID),
 		SubscriptionStatus: u.SubscriptionStatus,
-		SubscriptionPlan:   subscriptionPlan,
+		SubscriptionPlan:   utils.NullableStringToJSON(u.SubscriptionPlan),
 	})
 }
 

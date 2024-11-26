@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -108,4 +109,12 @@ func HasNumber(s string) bool {
 
 func HasUppercase(s string) bool {
 	return regexp.MustCompile(`[A-Z]`).MatchString(s)
+}
+
+// nullableStringToJSON converts a sql.NullString to an interface{} that can be marshaled into JSON.
+func NullableStringToJSON(ns sql.NullString) interface{} {
+	if ns.Valid {
+		return ns.String
+	}
+	return nil
 }
