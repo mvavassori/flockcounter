@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"log"
 	"net"
@@ -21,9 +22,26 @@ import (
 )
 
 func GetVisits(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		// Perform the SELECT query to get all visits
-		rows, err := db.Query("SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, time_spent_on_page, is_unique, utm_source, utm_medium, utm_campaign, utm_term, utm_content FROM visits")
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract limit and offset from query string
+		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+		if err != nil || limit <= 0 {
+			limit = 10 // default limit
+		}
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil || offset < 0 {
+			offset = 0 // default offset
+		}
+
+		// Prepare the SQL query with LIMIT and OFFSET for pagination
+		query := `
+			SELECT id, website_id, website_domain, timestamp, referrer, url, pathname, device_type, os, browser, language, country, region, city, time_spent_on_page, is_unique, utm_source, utm_medium, utm_campaign, utm_term, utm_content
+			FROM visits
+			ORDER BY timestamp DESC
+			LIMIT $1 OFFSET $2
+		`
+
+		rows, err := db.Query(query, limit, offset)
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -46,13 +64,14 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 			visits = append(visits, visit)
 		}
 
+		// Check if there were any errors during row iteration
 		if err := rows.Err(); err != nil {
 			log.Println("Error iterating visits:", err)
 			http.Error(w, "Error iterating visits", http.StatusInternalServerError)
 			return
 		}
 
-		// Now, 'visits' contains all the retrieved visits
+		// Marshal the slice of visits into JSON
 		jsonResponse, err := json.Marshal(visits)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)

@@ -2,7 +2,10 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
+
+	"github.com/mvavassori/bare-analytics/utils"
 )
 
 type Visit struct {
@@ -62,9 +65,24 @@ type VisitInsert struct {
 	UTMContent      sql.NullString `json:"utmContent"`
 }
 
-type VisitUpdateResponse struct {
-	VisitInsert
-	ID            int    `json:"id"`
-	WebsiteID     int    `json:"websiteId"`
-	WebsiteDomain string `json:"websiteDomain"`
+// MarshalJSON customizes the JSON encoding for the Visit struct.
+// This ensures that NullString fields are marshaled as `null` when empty.
+func (v *Visit) MarshalJSON() ([]byte, error) {
+	type Alias Visit // Create an alias to avoid infinite recursion
+
+	return json.Marshal(&struct {
+		*Alias
+		UTMSource   interface{} `json:"utmSource"`
+		UTMMedium   interface{} `json:"utmMedium"`
+		UTMCampaign interface{} `json:"utmCampaign"`
+		UTMTerm     interface{} `json:"utmTerm"`
+		UTMContent  interface{} `json:"utmContent"`
+	}{
+		Alias:       (*Alias)(v),
+		UTMSource:   utils.NullableStringToJSON(v.UTMSource),
+		UTMMedium:   utils.NullableStringToJSON(v.UTMMedium),
+		UTMCampaign: utils.NullableStringToJSON(v.UTMCampaign),
+		UTMTerm:     utils.NullableStringToJSON(v.UTMTerm),
+		UTMContent:  utils.NullableStringToJSON(v.UTMContent),
+	})
 }
