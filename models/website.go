@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// these fields can be null because there can be a user without websites, and i am returning websites along the user when calling GetUSer
 type Website struct {
 	ID        sql.NullInt64  `json:"id"`
 	Domain    sql.NullString `json:"domain"`

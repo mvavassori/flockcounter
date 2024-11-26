@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/mvavassori/bare-analytics/middleware"
@@ -16,8 +17,25 @@ import (
 )
 
 func GetWebsites(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		rows, err := db.Query("SELECT id, domain, user_id FROM websites")
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract limit and offset from query string
+		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+		if err != nil || limit <= 0 {
+			limit = 10 // default limit
+		}
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil || offset < 0 {
+			offset = 0 // default offset
+		}
+
+		// Prepare the SQL query with LIMIT and OFFSET for pagination
+		query := `
+			SELECT id, domain, user_id 
+			FROM websites 
+			LIMIT $1 OFFSET $2
+		`
+
+		rows, err := db.Query(query, limit, offset)
 		if err != nil {
 			log.Println("Error querying websites:", err)
 			http.Error(w, "Error retrieving websites", http.StatusInternalServerError)
@@ -25,9 +43,10 @@ func GetWebsites(db *sql.DB) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		// A websites slice to hold the retrieved websites
+		// A slice to hold the retrieved websites
 		var websites []models.Website
 
+		// Iterate through the result rows and scan into the website struct
 		for rows.Next() {
 			var website models.Website
 			err := rows.Scan(&website.ID, &website.Domain, &website.UserID)
@@ -37,15 +56,16 @@ func GetWebsites(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			websites = append(websites, website)
-
-			if err := rows.Err(); err != nil {
-				log.Println("Error iterating websites:", err)
-				http.Error(w, "Error iterating websites", http.StatusInternalServerError)
-				return
-			}
-
 		}
-		// Marshal the slice of websites into JSON without the Valid key for each nullable field -> see models/website.go
+
+		// Check if there were any errors during row iteration
+		if err := rows.Err(); err != nil {
+			log.Println("Error iterating websites:", err)
+			http.Error(w, "Error iterating websites", http.StatusInternalServerError)
+			return
+		}
+
+		// Marshal the slice of websites into JSON
 		jsonResponse, err := json.Marshal(websites)
 		if err != nil {
 			log.Println("Error encoding JSON:", err)
@@ -62,9 +82,23 @@ func GetWebsites(db *sql.DB) http.HandlerFunc {
 
 func GetUserWebsites(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract userID from the URL
 		userID, err := utils.ExtractIDFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Check if the user exists in the database
+		var exists bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&exists)
+		if err != nil {
+			log.Println("Error checking if user exists:", err)
+			http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
 
@@ -102,46 +136,6 @@ func GetUserWebsites(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
-	}
-}
-
-func GetWebsite(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// extract the value id from the url
-		id, err := utils.ExtractIDFromURL(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Perform the SELECT query to get the websit7e with the specified ID
-		row := db.QueryRow("SELECT * FROM websites WHERE id = $1", id)
-
-		// Creating a new instance of the Website struct from the models package and getting a pointer to it.
-		website := &models.Website{}
-
-		err = row.Scan(&website.ID, &website.Domain, &website.UserID, &website.CreatedAt, &website.UpdatedAt)
-		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("Website with id %d doesn't exist", id), http.StatusNotFound)
-			return
-		} else if err != nil {
-			log.Println("Error retrieving website:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Marshal the website data to JSON
-		jsonResponse, err := json.Marshal(website)
-		if err != nil {
-			log.Println("Error encoding JSON:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Set response headers and write the JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
