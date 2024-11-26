@@ -32,7 +32,7 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 
 		// Prepare the SQL query with LIMIT and OFFSET
 		query := `
-			SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at, websites.id, websites.domain, websites.user_id
+			SELECT users.id, users.name, users.email, users.password, users.role, users.created_at, users.updated_at, users.stripe_customer_id, users.subscription_status, users.subscription_plan, websites.id, websites.domain, websites.user_id
 			FROM users
 			LEFT JOIN websites ON users.id = websites.user_id
 			LIMIT $1 OFFSET $2
@@ -49,7 +49,7 @@ func GetUsers(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var user models.User
 			var website models.Website
-			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &website.ID, &website.Domain, &website.UserID)
+			err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.StripeCustomerID, &user.SubscriptionStatus, &user.SubscriptionPlan, &website.ID, &website.Domain, &website.UserID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -157,14 +157,23 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
+		// Explicitly marshal the user struct to ensure custom MarshalJSON is used
+		userJSON, err := json.Marshal(&user) // This should trigger the custom MarshalJSON method
+		if err != nil {
+			log.Println("Error marshaling user:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Now use the marshaled user JSON as RawMessage
 		responseData := map[string]interface{}{
-			"user":                   user,
-			"subscriptionExpiryDate": subscriptionExpiryDate, // returns the last subscription's expiry date(?)
+			"user":                   json.RawMessage(userJSON), // This will use the custom MarshalJSON
+			"subscriptionExpiryDate": subscriptionExpiryDate,
 		}
 
 		jsonResponse, err := json.Marshal(responseData)
 		if err != nil {
-			log.Println("Error encoding JSON:", err)
+			log.Println("Error marshaling response:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}

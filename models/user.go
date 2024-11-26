@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/mail"
 	"time"
@@ -42,6 +43,47 @@ type UserUpdate struct {
 type UserLogin struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type GetUserResponse struct {
+	User                   User   `json:"user"`
+	SubscriptionExpiryDate string `json:"subscriptionExpiryDate,omitempty"`
+}
+
+func (u *User) MarshalJSON() ([]byte, error) {
+	var stripeCustomerID string
+	if u.StripeCustomerID.Valid {
+		stripeCustomerID = u.StripeCustomerID.String
+	}
+
+	var subscriptionPlan string
+	if u.SubscriptionPlan.Valid {
+		subscriptionPlan = u.SubscriptionPlan.String
+	}
+
+	return json.Marshal(&struct {
+		ID                 int       `json:"id"`
+		Name               string    `json:"name"`
+		Email              string    `json:"email"`
+		Websites           []Website `json:"websites"`
+		CreatedAt          time.Time `json:"created_at"`
+		UpdatedAt          time.Time `json:"updated_at"`
+		Role               string    `json:"role"`
+		StripeCustomerID   string    `json:"stripe_customer_id,omitempty"`
+		SubscriptionStatus string    `json:"subscription_status"`
+		SubscriptionPlan   string    `json:"subscription_plan,omitempty"`
+	}{
+		ID:                 u.ID,
+		Name:               u.Name,
+		Email:              u.Email,
+		Websites:           u.Websites,
+		CreatedAt:          u.CreatedAt,
+		UpdatedAt:          u.UpdatedAt,
+		Role:               u.Role,
+		StripeCustomerID:   stripeCustomerID,
+		SubscriptionStatus: u.SubscriptionStatus,
+		SubscriptionPlan:   subscriptionPlan,
+	})
 }
 
 func (u *UserInsert) Validate() error {
