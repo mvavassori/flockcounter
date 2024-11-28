@@ -1599,3 +1599,153 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 		w.Write(jsonStats)
 	}
 }
+
+func GetUTMParameters(db *sql.DB, utm_parameter string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the domain from the url
+		domain, err := utils.ExtractDomainFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Extract start and end dates from the request query parameters
+		startDate := r.URL.Query().Get("startDate")
+		endDate := r.URL.Query().Get("endDate")
+
+		// Convert the dates to a format suitable for my database
+		start, err := time.Parse("2006-01-02T15:04:05.999Z07:00", startDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		end, err := time.Parse("2006-01-02T15:04:05.999Z07:00", endDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Extract limit and offset from query string
+		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+		if err != nil || limit <= 0 {
+			limit = 10 // default limit
+		}
+		offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil || offset < 0 {
+			offset = 0 // default offset
+		}
+
+		// Dynamic query construction using the utm_parameter
+		baseQuery := fmt.Sprintf("SELECT %s, COUNT(*) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND %s IS NOT NULL AND %s != ''", utm_parameter, utm_parameter, utm_parameter)
+		countQuery := fmt.Sprintf("SELECT COUNT(DISTINCT %s) FROM visits WHERE website_domain = $1 AND timestamp BETWEEN $2 AND $3 AND %s IS NOT NULL AND %s != ''", utm_parameter, utm_parameter, utm_parameter)
+		params := []interface{}{domain, start, end}
+		paramIndex := 4 // Start the parameter index at 4 because $1, $2, and $3 are already used
+
+		// Map query parameter names to column names
+		filters := map[string]string{
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
+		}
+
+		// Add filters to the query
+		for param, column := range filters {
+			value := r.URL.Query().Get(param)
+			if value != "" {
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
+			}
+		}
+
+		// Complete the query
+		dataQuery := baseQuery + fmt.Sprintf(" GROUP BY %s ORDER BY COUNT(*) DESC LIMIT $%d OFFSET $%d", utm_parameter, paramIndex, paramIndex+1)
+		dataParams := append(params, limit, offset)
+
+		var wg sync.WaitGroup
+		var totalCount int
+		var utm_values []string
+		var counts []int
+		var countErr, dataErr error
+
+		// Goroutine for count query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := db.QueryRow(countQuery, params...).Scan(&totalCount)
+			if err != nil {
+				countErr = err
+			}
+		}()
+
+		// Goroutine for data query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := db.Query(dataQuery, dataParams...)
+			if err != nil {
+				dataErr = err
+				return
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var utm_value string
+				var count int
+				if err := rows.Scan(&utm_value, &count); err != nil {
+					dataErr = err
+					return
+				}
+				utm_values = append(utm_values, utm_value)
+				counts = append(counts, count)
+			}
+
+			if err := rows.Err(); err != nil {
+				dataErr = err
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
+
+		// Check for errors
+		if countErr != nil {
+			log.Println("Error getting total count:", countErr)
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if dataErr != nil {
+			log.Println("Error getting utm parameters data:", dataErr)
+			http.Error(w, dataErr.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Prepare and send the JSON response
+		jsonStats, err := json.Marshal(map[string]interface{}{
+			"utm_values": utm_values,
+			"counts":     counts,
+			"totalCount": totalCount,
+		})
+		if err != nil {
+			log.Println("Error marshalling statistics:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonStats)
+	}
+}
