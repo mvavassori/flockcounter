@@ -95,25 +95,29 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf(" - %s: %s", param, value)
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
-				params = append(params, value)
-				paramIndex++
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				params = append(params, value)                                // Add the filter value to the parameters list
+				paramIndex++                                                  // Increment the parameter index for the next filter
 			}
 		}
 
@@ -189,22 +193,26 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 			// Map query parameter names to column names
 			filters := map[string]string{
-				"referrer":    "referrer",
-				"pathname":    "pathname",
-				"device_type": "device_type",
-				"os":          "os",
-				"browser":     "browser",
-				"language":    "language",
-				"country":     "country",
-				"city":        "city",
-				"region":      "region",
+				"referrer":     "referrer",
+				"pathname":     "pathname",
+				"device_type":  "device_type",
+				"os":           "os",
+				"browser":      "browser",
+				"language":     "language",
+				"country":      "country",
+				"city":         "city",
+				"region":       "region",
+				"utm_source":   "utm_source",
+				"utm_medium":   "utm_medium",
+				"utm_campaign": "utm_campaign",
+				"utm_term":     "utm_term",
+				"utm_content":  "utm_content",
 			}
 
 			// Add filters to the query
 			for param, column := range filters {
 				value := r.URL.Query().Get(param)
 				if value != "" {
-					log.Printf(" - %s: %s", param, value)
 					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 					params = append(params, value)
 					paramIndex++
@@ -279,22 +287,26 @@ func GetTopStats(db *sql.DB) http.HandlerFunc {
 
 			// Map query parameter names to column names
 			filters := map[string]string{
-				"referrer":    "referrer",
-				"pathname":    "pathname",
-				"device_type": "device_type",
-				"os":          "os",
-				"browser":     "browser",
-				"language":    "language",
-				"country":     "country",
-				"city":        "city",
-				"region":      "region",
+				"referrer":     "referrer",
+				"pathname":     "pathname",
+				"device_type":  "device_type",
+				"os":           "os",
+				"browser":      "browser",
+				"language":     "language",
+				"country":      "country",
+				"city":         "city",
+				"region":       "region",
+				"utm_source":   "utm_source",
+				"utm_medium":   "utm_medium",
+				"utm_campaign": "utm_campaign",
+				"utm_term":     "utm_term",
+				"utm_content":  "utm_content",
 			}
 
 			// Add filters to the query
 			for param, column := range filters {
 				value := r.URL.Query().Get(param)
 				if value != "" {
-					log.Printf(" - %s: %s", param, value)
 					baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 					params = append(params, value)
 					paramIndex++
@@ -482,15 +494,20 @@ func GetPages(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
@@ -627,22 +644,27 @@ func GetReferrers(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 				params = append(params, value) // Add the filter value to the parameters list
 				paramIndex++                   // Increment the parameter index for the next filter
@@ -761,25 +783,29 @@ func GetDeviceTypes(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -858,25 +884,29 @@ func GetOSes(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -955,25 +985,29 @@ func GetBrowsers(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				log.Printf(" - %s: %s", param, value)                         // Print the filter being added
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
-				params = append(params, value)                                // Add the filter value to the parameters list
-				paramIndex++                                                  // Increment the parameter index for the next filter
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -1063,25 +1097,30 @@ func GetLanguages(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
 		for param, column := range filters {
 			value := r.URL.Query().Get(param)
 			if value != "" {
-				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex) // Add the filter to the query with the current parameter index
+				baseQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
 				countQuery += fmt.Sprintf(" AND %s = $%d", column, paramIndex)
-				params = append(params, value) // Add the filter value to the parameters list
-				paramIndex++                   // Increment the parameter index for the next filter
+				params = append(params, value)
+				paramIndex++
 			}
 		}
 
@@ -1208,15 +1247,20 @@ func GetCountries(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
@@ -1353,15 +1397,20 @@ func GetRegions(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
@@ -1498,15 +1547,20 @@ func GetCities(db *sql.DB) http.HandlerFunc {
 
 		// Map query parameter names to column names
 		filters := map[string]string{
-			"referrer":    "referrer",
-			"pathname":    "pathname",
-			"device_type": "device_type",
-			"os":          "os",
-			"browser":     "browser",
-			"language":    "language",
-			"country":     "country",
-			"city":        "city",
-			"region":      "region",
+			"referrer":     "referrer",
+			"pathname":     "pathname",
+			"device_type":  "device_type",
+			"os":           "os",
+			"browser":      "browser",
+			"language":     "language",
+			"country":      "country",
+			"city":         "city",
+			"region":       "region",
+			"utm_source":   "utm_source",
+			"utm_medium":   "utm_medium",
+			"utm_campaign": "utm_campaign",
+			"utm_term":     "utm_term",
+			"utm_content":  "utm_content",
 		}
 
 		// Add filters to the query
