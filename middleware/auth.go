@@ -33,7 +33,6 @@ func AdminOrAuth(next http.Handler) http.Handler {
 		// Validate the token and extract claims
 		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println("Token validation error:", err)
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
@@ -82,7 +81,6 @@ func Admin(next http.Handler) http.Handler {
 		// Validate the token and extract claims
 		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println("Token validation error:", err)
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
@@ -120,7 +118,6 @@ func AdminOrOwner(next http.Handler) http.Handler {
 		// Validate the token and extract claims
 		claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 		if err != nil {
-			log.Println("Token validation error:", err)
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
@@ -178,7 +175,6 @@ func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 			// Validate the token and extract claims
 			claims, err := utils.ValidateTokenAndExtractClaims(parts[1])
 			if err != nil {
-				log.Println("Token validation error:", err)
 				http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 				return
 			}
