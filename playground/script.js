@@ -1,7 +1,8 @@
+// todo test referrer in SPAs
 // Prepare payload data
 const now = new Date();
 const formattedStamp = now.toISOString();
-const url = "http://localhost:8080/api/visit";
+const backendUrl = "http://localhost:8080/api/visit";
 
 // Get the current time in milliseconds when the page loads
 let startTime = performance.now();
@@ -34,7 +35,7 @@ function sendVisit(elapsedTime) {
   };
   let data = JSON.stringify(payloadData);
   console.log("Sending visit data:", payloadData);
-  navigator.sendBeacon(url, data);
+  navigator.sendBeacon(backendUrl, data);
 }
 
 // Event listener for page visibility changes
@@ -85,17 +86,29 @@ window.history.replaceState = overrideReplaceStateFunction(
 
 function handleRouteChange() {
   const newUrl = window.location.href;
+  let referrer;
+
+  if (document.referrer) {
+    // Parse the referrer URL
+    let referrerURL = new URL(document.referrer);
+
+    // Construct the referrer without query parameters
+    referrer = referrerURL.origin + referrerURL.pathname;
+  } else {
+    referrer = "Direct";
+  }
+
   if (newUrl !== currentUrl) {
     // Store the current URL as the previous referrer
-    currentReferrer = currentUrl;
+    currentReferrer = referrer;
 
     console.log("URL changed from", currentUrl, "to", newUrl);
     const elapsedTime = performance.now() - startTime;
     console.log("Page changed, elapsed time:", elapsedTime);
     totalElapsedTime += elapsedTime;
     console.log("Total elapsed time:", totalElapsedTime);
-    if (totalElapsedTime < 5000) {
-      console.log("Visit time less than 5 seconds, not sending data.");
+    if (totalElapsedTime < 2000) {
+      console.log("Visit time less than 2 seconds, not sending data.");
       // Reset the timer without sending the visit data
       startTime = performance.now();
       totalElapsedTime = 0;
