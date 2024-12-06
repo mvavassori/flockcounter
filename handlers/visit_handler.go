@@ -216,14 +216,14 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		// Generate daily salt or grab from cache if already generated
 		dailySalt, err := utils.GenerateDailySalt()
 		if err != nil {
-			fmt.Println(err)
+			log.Println("Error generating or grabbing daily salt", err)
 			return
 		}
 
 		// Generate a unique identifier
 		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent) // todo: change to ip address variable later
 		if err != nil {
-			fmt.Println(err)
+			log.Println("Error generating a unique identifier", err)
 			return
 		}
 
