@@ -55,6 +55,7 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/dashboard/utm_campaigns/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMParameters(db, "utm_campaign"))).Methods("GET")
 	router.Handle("/api/dashboard/utm_terms/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMParameters(db, "utm_term"))).Methods("GET")
 	router.Handle("/api/dashboard/utm_contents/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetUTMParameters(db, "utm_content"))).Methods("GET")
+	router.Handle("/api/dashboard/live-pageviews/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetLivePageViews(db))).Methods("GET")
 
 	// events routes
 	router.Handle("/api/events/{domain}", middleware.AdminOrUserWebsite(db)(handlers.GetEvents(db))).Methods("GET")

@@ -8,10 +8,7 @@ import (
 	"math"
 	"sort"
 
-	// "strings"
-	// "math"
 	"net/http"
-	// "net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -1801,5 +1798,33 @@ func GetUTMParameters(db *sql.DB, utm_parameter string) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonStats)
+	}
+}
+
+func GetLivePageViews(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		domain, err := utils.ExtractDomainFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// make a query that returns all the visitors (not visits, that's the catch) to the domain in the last minute
+		query := "SELECT COUNT(*) FROM VISITS WHERE website_domain = $1 AND timestamp >= NOW() - INTERVAL '60 seconds'"
+		var visitorCount int
+		err = db.QueryRow(query, domain).Scan(&visitorCount)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		jsonResponse, err := json.Marshal(map[string]int{"count": visitorCount})
+		if err != nil {
+			log.Println("JSON marshalling error:", err)
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(jsonResponse)
 	}
 }
