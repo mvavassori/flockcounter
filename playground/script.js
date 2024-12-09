@@ -1,7 +1,5 @@
 // todo test referrer in SPAs
 // Prepare payload data
-const now = new Date();
-const formattedStamp = now.toISOString();
 const backendUrl = "http://localhost:8080/api/visit";
 
 // Get the current time in milliseconds when the page loads
@@ -24,6 +22,8 @@ console.log("Page loaded, startTime:", startTime);
 
 // Function to handle sending the visit data
 function sendVisit(elapsedTime) {
+  const now = new Date();
+  const formattedStamp = now.toISOString();
   const payloadData = {
     timestamp: formattedStamp,
     referrer: currentReferrer,
