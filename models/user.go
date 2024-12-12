@@ -36,7 +36,6 @@ type UserInsert struct {
 type UserUpdate struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
-	Password  string    `json:"password"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -48,6 +47,11 @@ type UserLogin struct {
 type GetUserResponse struct {
 	User                   User   `json:"user"`
 	SubscriptionExpiryDate string `json:"subscriptionExpiryDate,omitempty"`
+}
+
+type PasswordChange struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
 }
 
 func (u *User) MarshalJSON() ([]byte, error) {
@@ -76,7 +80,7 @@ func (u *User) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (u *UserInsert) Validate() error {
+func (u *UserInsert) ValidateSignUp() error {
 	if u.Name == "" {
 		return errors.New("name is required")
 	}
@@ -92,7 +96,7 @@ func (u *UserInsert) Validate() error {
 	if u.Password == "" {
 		return errors.New("password is required")
 	}
-	if len(u.Password) < 6 { // todo change this to 8
+	if len(u.Password) < 6 { // todo change this to 8 before prod
 		return errors.New("password must be at least 8 characters long")
 	}
 	if !utils.HasSpecialChar(u.Password) || !utils.HasNumber(u.Password) || !utils.HasUppercase(u.Password) {
@@ -110,6 +114,41 @@ func (u *UserLogin) ValidateLogin() error {
 	}
 	if u.Password == "" {
 		return errors.New("password is required")
+	}
+	return nil
+}
+
+func (pc *PasswordChange) ValidatePasswordChange() error {
+	if pc.OldPassword == "" {
+		return errors.New("old password is required")
+	}
+	if pc.NewPassword == "" {
+		return errors.New("new password is required")
+	}
+	if pc.OldPassword == pc.NewPassword {
+		return errors.New("new password must be different from old password")
+	}
+	if len(pc.NewPassword) < 8 {
+		return errors.New("new password must be at least 8 characters long")
+	}
+	if !utils.HasSpecialChar(pc.NewPassword) || !utils.HasNumber(pc.NewPassword) || !utils.HasUppercase(pc.NewPassword) {
+		return errors.New("new password must contain at least one uppercase letter, one number, and one special character")
+	}
+	return nil
+}
+
+func (uu *UserUpdate) ValidateUserUpdate() error {
+	if uu.Name == "" {
+		return errors.New("name is required")
+	}
+	if len(uu.Name) < 2 || len(uu.Name) > 50 {
+		return errors.New("name must be between 2 and 50 characters")
+	}
+	if uu.Email == "" {
+		return errors.New("email is required")
+	}
+	if _, err := mail.ParseAddress(uu.Email); err != nil {
+		return errors.New("invalid email format")
 	}
 	return nil
 }

@@ -202,7 +202,7 @@ func CreateUser(db *sql.DB, isAdmin bool) http.HandlerFunc {
 		}
 
 		// Validate the user struct
-		err = user.Validate()
+		err = user.ValidateSignUp()
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
@@ -258,40 +258,46 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
 		}
 
 		var userUpdate models.UserUpdate
 		err = json.NewDecoder(r.Body).Decode(&userUpdate)
 		if err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid request body"))
+			return
+		}
+
+		// Validate the user update request
+		err = userUpdate.ValidateUserUpdate()
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
 		}
 
 		now := time.Now()
-
 		result, err := db.Exec(`
-			UPDATE users
-			SET name = $1, email = $2, password = $3, updated_at = $4
-			WHERE id = $5
-		`, userUpdate.Name, userUpdate.Email, userUpdate.Password, now, id)
+            UPDATE users
+            SET name = $1, email = $2, updated_at = $3
+            WHERE id = $4
+        `, userUpdate.Name, userUpdate.Email, now, id)
 
 		if err != nil {
 			log.Println("Error updating user:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		// Check if the user was found
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
 			return
 		}
 
 		if rowsAffected == 0 {
-			http.Error(w, fmt.Sprintf("User with id %d doesn't exist", id), http.StatusNotFound)
+			utils.WriteErrorResponse(w, http.StatusNotFound, errors.New("user not found"))
 			return
 		}
 
@@ -513,8 +519,6 @@ func RefreshToken(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// Plan limits
-
 func GetUserWebsiteLimits(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the user ID from the URL
@@ -576,5 +580,77 @@ func GetUserWebsiteLimits(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
+	}
+}
+
+func ChangePassword(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := utils.ExtractIDFromURL(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var passwordChange models.PasswordChange
+		err = json.NewDecoder(r.Body).Decode(&passwordChange)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, errors.New("invalid request body"))
+			return
+		}
+
+		// Validate the password change request
+		err = passwordChange.ValidatePasswordChange()
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err)
+			return
+		}
+
+		// Retrieve the user's current password hash from the database
+		var currentPasswordHash string
+		err = db.QueryRow(`
+            SELECT password
+            FROM users
+            WHERE id = $1
+        `, id).Scan(&currentPasswordHash)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				utils.WriteErrorResponse(w, http.StatusNotFound, errors.New("user not found"))
+			} else {
+				log.Println("Error retrieving user password:", err)
+				utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
+			}
+			return
+		}
+
+		// Check if the provided old password matches the current password hash
+		err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(passwordChange.OldPassword))
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid old password"))
+			return
+		}
+
+		// Hash the new password
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordChange.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			log.Println("Error hashing password:", err)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
+			return
+		}
+
+		// Update the user's password in the database
+		_, err = db.Exec(`
+            UPDATE users
+            SET password = $1, updated_at = NOW()
+            WHERE id = $2
+        `, string(hashedPassword), id)
+
+		if err != nil {
+			log.Println("Error updating user password:", err)
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, errors.New("internal server error"))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 	}
 }

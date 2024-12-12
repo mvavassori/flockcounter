@@ -21,12 +21,13 @@ func SetupRouter(db *sql.DB) *mux.Router {
 	router.Handle("/api/users", middleware.Admin(handlers.GetUsers(db))).Methods("GET")
 	router.Handle("/api/user/{id}", middleware.AdminOrOwner(handlers.GetUser(db))).Methods("GET")
 	router.HandleFunc("/api/user", handlers.CreateUser(db, false)).Methods("POST") // false to indicate that we'll create a regular user
-	router.Handle("/api/user/{id}", middleware.AdminOrOwner(handlers.UpdateUser(db))).Methods("PUT")
+	router.Handle("/api/user/{id}", middleware.AdminOrOwner(handlers.UpdateUser(db))).Methods("PATCH")
 	router.Handle("/api/user/{id}", middleware.AdminOrOwner(handlers.DeleteUser(db))).Methods("DELETE")
 
 	// auth routes
 	router.HandleFunc("/api/user/login", handlers.Login(db)).Methods("POST")
 	router.HandleFunc("/api/user/refresh-token", handlers.RefreshToken(db)).Methods("POST")
+	router.Handle("/api/user/change-password/{id}", middleware.AdminOrOwner(handlers.ChangePassword(db))).Methods("PATCH")
 
 	// admin user routes
 	router.Handle("/api/admin/user", middleware.Admin(handlers.CreateUser(db, true))).Methods("POST") // true to indicate that we'll create an admin user
