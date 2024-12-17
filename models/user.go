@@ -50,8 +50,8 @@ type GetUserResponse struct {
 }
 
 type PasswordChange struct {
-	OldPassword string `json:"oldPassword"`
-	NewPassword string `json:"newPassword"`
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
 }
 
 func (u *User) MarshalJSON() ([]byte, error) {
@@ -119,13 +119,13 @@ func (u *UserLogin) ValidateLogin() error {
 }
 
 func (pc *PasswordChange) ValidatePasswordChange() error {
-	if pc.OldPassword == "" {
+	if pc.CurrentPassword == "" {
 		return errors.New("old password is required")
 	}
 	if pc.NewPassword == "" {
 		return errors.New("new password is required")
 	}
-	if pc.OldPassword == pc.NewPassword {
+	if pc.CurrentPassword == pc.NewPassword {
 		return errors.New("new password must be different from old password")
 	}
 	if len(pc.NewPassword) < 8 {

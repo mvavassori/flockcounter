@@ -624,7 +624,7 @@ func ChangePassword(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Check if the provided old password matches the current password hash
-		err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(passwordChange.OldPassword))
+		err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(passwordChange.CurrentPassword))
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusUnauthorized, errors.New("invalid old password"))
 			return
