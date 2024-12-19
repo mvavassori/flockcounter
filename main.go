@@ -10,15 +10,22 @@ import (
 )
 
 func main() {
-	// db initialization
-	db, err := db.CreateDBConnection()
+	// Connect to Postgres
+	postgresDB, err := db.CreatePostgresConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer postgresDB.Close()
+
+	// Connect to GeoIP
+	geoipDB, err := db.CreateGeoIPConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer geoipDB.Close()
 
 	// router
-	router := SetupRouter(db)
+	router := SetupRouter(postgresDB, geoipDB)
 
 	port := 8080
 	address := fmt.Sprintf(":%d", port) // :8080
