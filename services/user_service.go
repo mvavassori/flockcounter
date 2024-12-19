@@ -4,8 +4,8 @@ import (
 	"database/sql"
 
 	"github.com/mvavassori/bare-analytics/models"
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/subscription"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/subscription"
 )
 
 func GetUserById(db *sql.DB, id int) (models.User, error) {

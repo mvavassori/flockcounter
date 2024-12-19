@@ -13,11 +13,11 @@ import (
 
 	"github.com/mvavassori/bare-analytics/models"
 	"github.com/mvavassori/bare-analytics/services"
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/checkout/session"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/checkout/session"
 
-	"github.com/stripe/stripe-go/v79/customer"
-	"github.com/stripe/stripe-go/v79/webhook"
+	"github.com/stripe/stripe-go/v81/customer"
+	"github.com/stripe/stripe-go/v81/webhook"
 )
 
 type PlanDetails struct {

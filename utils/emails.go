@@ -1,30 +1,16 @@
 package utils
 
 import (
-	// "context"
 	"crypto/tls"
 	"fmt"
 	"log"
 	"net/mail"
 	"net/smtp"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 // const senderEmail = "mv@marcovassori.com"
 const senderEmail = "mv@purelymail.com"
-
-var senderPassword string
-
-func init() {
-	// load env variables
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	senderPassword = os.Getenv("SENDER_PASSWORD")
-}
 
 const smtpServer = "smtp.purelymail.com"
 const smtpPort = "465"
@@ -53,6 +39,8 @@ func SendEmail(recipientEmail, subject, body string) error {
 		return err
 	}
 	defer client.Quit()
+
+	senderPassword := os.Getenv("SENDER_PASSWORD")
 
 	// Authenticate
 	auth := smtp.PlainAuth("", senderEmail, senderPassword, smtpServer)
