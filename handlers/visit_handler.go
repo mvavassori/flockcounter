@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 
 	"log"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 
 	_ "github.com/lib/pq"
 	"github.com/mileusna/useragent"
@@ -21,7 +20,7 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
-func GetVisits(db *sql.DB) http.HandlerFunc {
+func GetVisits(postgresDB *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract limit and offset from query string
 		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -41,7 +40,7 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 			LIMIT $1 OFFSET $2
 		`
 
-		rows, err := db.Query(query, limit, offset)
+		rows, err := postgresDB.Query(query, limit, offset)
 		if err != nil {
 			log.Println("Error querying visits:", err)
 			http.Error(w, "Error querying visits", http.StatusInternalServerError)
@@ -86,74 +85,36 @@ func GetVisits(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func CreateVisit(db *sql.DB) http.HandlerFunc {
+func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		// todo uncomment this when in production
-		// //Get IP address
-		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		// if err != nil {
-		// 	log.Println("Error getting ip from remote addr", err)
-		// } else {
-		// 	fmt.Println("Received request from IP:", ip)
-		// }
-
-		// todo make a separate function to get location data
-		// Get home directory
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal("Error getting home directory:", err)
+		var parsedIP net.IP
+		if os.Getenv("ENV") == "production" {
+			// Try different headers first, then fall back to RemoteAddr
+			ipAddress := utils.GetIPAddress(r)
+			if ipAddress == "" {
+				log.Println("Could not determine IP address")
+				http.Error(w, "Could not determine IP address", http.StatusInternalServerError)
+				return
+			}
+			parsedIP = net.ParseIP(ipAddress)
+		} else {
+			parsedIP = net.ParseIP("151.30.13.167") // test IP
 		}
-
-		// Construct full path to GeoLite2-City.mmdb file
-		dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
-
-		geoip2DB, err := geoip2.Open(dbPath)
-		if err != nil {
-			log.Fatal("Error initilizing geoip2 database", err)
-		}
-		defer geoip2DB.Close()
-
-		// todo: enable this in production
-		// parsedIP := net.ParseIP(ip)
-
-		// for testing just use this one ip address
-		parsedIP := net.ParseIP("151.30.13.167")
 
 		if parsedIP == nil {
-			log.Println("Error parsing IP", err)
+			log.Println("Invalid IP format")
 			http.Error(w, "Invalid IP format", http.StatusBadRequest)
 			return
 		}
 
-		record, err := geoip2DB.City(parsedIP)
+		record, err := geoipDB.City(parsedIP)
 		if err != nil {
-			log.Println("Error retrieving location", err)
+			log.Printf("Error retrieving location for IP %v: %v", parsedIP, err)
+			http.Error(w, "Error retrieving location", http.StatusInternalServerError)
+			return
 		}
 
-		// Default values if country, region, or city are not found
-		country := "Unknown"
-		region := "Unknown"
-		city := "Unknown"
-
-		// Retrieve country name if available
-		if countryName, ok := record.Country.Names["en"]; ok {
-			country = countryName
-		}
-
-		// Retrieve region name if available
-		if len(record.Subdivisions) > 0 {
-			if regionName, ok := record.Subdivisions[0].Names["en"]; ok {
-				region = regionName
-			}
-		} else {
-			log.Println("No subdivision information available")
-		}
-
-		// Retrieve city name if available
-		if cityName, ok := record.City.Names["en"]; ok {
-			city = cityName
-		}
+		location := utils.GetLocationInfo(record)
 
 		// Create a VisitReceiver struct to hold the request data
 		var visitReceiver models.VisitReceiver
@@ -206,7 +167,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Look up the websiteId using the domain
 		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		err = postgresDB.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
 		if err != nil {
 			log.Println("Error looking up websiteId", err)
 			http.Error(w, "Website not found", http.StatusNotFound)
@@ -221,7 +182,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Generate a unique identifier
-		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", visitReceiver.UserAgent) // todo: change to ip address variable later
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, string(parsedIP), visitReceiver.UserAgent) // todo: change to ip address variable later
 		if err != nil {
 			log.Println("Error generating a unique identifier", err)
 			return
@@ -229,7 +190,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 
 		// Check if the unique identifier exists in the daily_unique_identifiers table
 		var isUnique bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
+		err = postgresDB.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
 		if err != nil {
 			log.Println("Error checking for existing unique identifier", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -241,7 +202,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			isUnique = false
 		} else {
 			// Add the unique identifier to the daily_unique_identifiers table
-			_, err := db.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
+			_, err := postgresDB.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
 			if err != nil {
 				log.Println("Error inserting unique identifier", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -260,9 +221,9 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			OS:              ua.OS,
 			Browser:         ua.Name,
 			Language:        visitReceiver.Language,
-			Country:         country,
-			Region:          region,
-			City:            city,
+			Country:         location.Country,
+			Region:          location.City,
+			City:            location.Region,
 			IsUnique:        isUnique,
 			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
 			UTMSource: sql.NullString{
@@ -294,7 +255,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
 		`
-		_, err = db.Exec(insertQuery,
+		_, err = postgresDB.Exec(insertQuery,
 			websiteId,
 			domain,
 			visit.Timestamp,
@@ -317,7 +278,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 			visit.UTMContent,
 		)
 		if err != nil {
-			fmt.Println("Error inserting visit:", err)
+			log.Println("Error inserting visit:", err)
 			return
 		}
 
@@ -325,7 +286,7 @@ func CreateVisit(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func DeleteVisit(db *sql.DB) http.HandlerFunc {
+func DeleteVisit(postgresDB *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the value of the 'id' variable from the URL path
 		id, err := utils.ExtractIDFromURL(r)
@@ -335,7 +296,7 @@ func DeleteVisit(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Perform the DELETE query to delete the visit with the specified ID
-		result, err := db.Exec("DELETE FROM visits WHERE id = $1", id)
+		result, err := postgresDB.Exec("DELETE FROM visits WHERE id = $1", id)
 		if err != nil {
 			log.Println("Error deleting visit:", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
