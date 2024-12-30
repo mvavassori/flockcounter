@@ -17,7 +17,7 @@ func CreatePostgresConnection() (*sql.DB, error) {
 		os.Getenv("POSTGRES_PASSWORD"),
 		os.Getenv("POSTGRES_HOST"),
 		os.Getenv("POSTGRES_PORT"),
-		os.Getenv("POSTGRES_NAME"),
+		os.Getenv("POSTGRES_DB"),
 		os.Getenv("POSTGRES_SSLMODE"),
 	)
 	db, err := sql.Open("postgres", connStr)
@@ -36,12 +36,16 @@ func CreatePostgresConnection() (*sql.DB, error) {
 }
 
 func CreateGeoIPConnection() (*geoip2.Reader, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("home directory error: %w", err)
+	dbPath := os.Getenv("GEOIP_DB_PATH")
+	if dbPath == "" {
+		// Fallback to local development path if env var not set
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("home directory error: %w", err)
+		}
+		dbPath = filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
 	}
 
-	dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
 	db, err := geoip2.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("geoip connection error: %w", err)
