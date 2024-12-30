@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/mileusna/useragent"
@@ -19,14 +18,8 @@ import (
 	"github.com/mvavassori/bare-analytics/models"
 )
 
-func MakeEvent(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-	}
-}
-
 // Will be displayed in the dashboard or a dedicated different section/page
-func GetEvents(db *sql.DB) http.HandlerFunc {
+func GetEvents(postgresDB *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// extract the value id from the url
 		domain, err := utils.ExtractDomainFromURL(r)
@@ -36,7 +29,7 @@ func GetEvents(db *sql.DB) http.HandlerFunc {
 		}
 
 		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
+		err = postgresDB.QueryRow("SELECT EXISTS(SELECT 1 FROM websites WHERE domain = $1)", domain).Scan(&exists)
 		if err != nil {
 			log.Println("Error checking if website exists:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -71,7 +64,7 @@ func GetEvents(db *sql.DB) http.HandlerFunc {
 			GROUP BY name
 		`
 
-		rows, err := db.Query(query, domain, start, end)
+		rows, err := postgresDB.Query(query, domain, start, end)
 		if err != nil {
 			log.Println("Error querying events:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -111,88 +104,37 @@ func GetEvents(db *sql.DB) http.HandlerFunc {
 
 }
 
-//? GetEvent <- should i add also a way to display data for a single event?
-
-func CreateEvent(db *sql.DB) http.HandlerFunc {
+func CreateEvent(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		// // return the entire body of the request in a readable format for testing purposes
-		// body, err := io.ReadAll(r.Body)
-		// if err != nil {
-		// 	log.Println("Error reading request body:", err)
-		// 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		// 	return
-		// }
-		// fmt.Println("Request body:", string(body))
-
-		// todo
-		// //Get IP address
-		// ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		// if err != nil {
-		// 	log.Println("Error getting ip from remote addr", err)
-		// } else {
-		// 	fmt.Println("Received request from IP:", ip)
-		// }
-
-		// Get home directory
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal("Error getting home directory:", err)
+		var parsedIP net.IP
+		if os.Getenv("ENV") == "production" {
+			// Try different headers first, then fall back to RemoteAddr
+			ipAddress := utils.GetIPAddress(r)
+			if ipAddress == "" {
+				log.Println("Could not determine IP address")
+				http.Error(w, "Could not determine IP address", http.StatusInternalServerError)
+				return
+			}
+			parsedIP = net.ParseIP(ipAddress)
+		} else {
+			parsedIP = net.ParseIP("151.30.13.167") // test IP
 		}
-
-		fmt.Println("Home directory:", homeDir)
-		// Construct full path to GeoLite2-City.mmdb file
-		dbPath := filepath.Join(homeDir, ".geoip2", "GeoLite2-City.mmdb")
-
-		fmt.Println("Database path:", dbPath)
-
-		geoip2DB, err := geoip2.Open(dbPath)
-		if err != nil {
-			log.Fatal("Error initilizing geoip2 database", err)
-		}
-		defer geoip2DB.Close()
-
-		// todo
-		// parsedIP := net.ParseIP(ip)
-		// for testing
-		parsedIP := net.ParseIP("151.30.13.167")
 
 		if parsedIP == nil {
-			log.Println("Error parsing IP", err)
+			log.Println("Invalid IP format")
 			http.Error(w, "Invalid IP format", http.StatusBadRequest)
 			return
 		}
 
-		fmt.Println("Parsed IP:", parsedIP)
-
-		record, err := geoip2DB.City(parsedIP)
+		record, err := geoipDB.City(parsedIP)
 		if err != nil {
-			log.Println("Error retrieving location", err)
+			log.Printf("Error retrieving location for IP %v: %v", parsedIP, err)
+			http.Error(w, "Error retrieving location", http.StatusInternalServerError)
+			return
 		}
 
-		// Default values if country, region, or city are not found
-		country := "Unknown"
-		region := "Unknown"
-		city := "Unknown"
-
-		// Retrieve country name if available
-		if countryName, ok := record.Country.Names["en"]; ok {
-			country = countryName
-		}
-
-		// Retrieve region name if available
-		if len(record.Subdivisions) > 0 {
-			if regionName, ok := record.Subdivisions[0].Names["en"]; ok {
-				region = regionName
-			}
-		} else {
-			log.Println("No subdivision information available")
-		}
-
-		// Retrieve city name if available
-		if cityName, ok := record.City.Names["en"]; ok {
-			city = cityName
-		}
+		location := utils.GetLocationInfo(record)
 
 		// create a EventReceiver struct to hold the request data
 		var eventReceiver models.EventReceiver
@@ -204,8 +146,6 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 
 		ua := useragent.Parse(eventReceiver.UserAgent)
 
-		fmt.Println("ua", ua)
-
 		url, err := url.Parse(eventReceiver.URL)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -213,7 +153,6 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 		}
 
 		domain := url.Hostname()
-		fmt.Println(domain)
 
 		// extract the referrer
 		referrer := eventReceiver.Referrer
@@ -233,37 +172,32 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			referrer = referrerURL.Host + referrerURL.Path
 		}
 
-		fmt.Println("Frontend sent: ", eventReceiver)
-
 		// Look up the websiteId using the domain
 		var websiteId int
-		err = db.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
+		err = postgresDB.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
 		if err != nil {
 			log.Println("Error looking up websiteId", err)
 			http.Error(w, "Website not found", http.StatusNotFound)
 			return
 		}
 
-		// todo: check isUnique
 		// Generate daily salt or grab from cache if already generated
 		dailySalt, err := utils.GenerateDailySalt()
 		if err != nil {
-			fmt.Println(err)
+			log.Println("Error generating or grabbing daily salt", err)
 			return
 		}
 
 		// Generate a unique identifier
 		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, "45.14.71.8", eventReceiver.UserAgent) // todo: change to ip address variable later
 		if err != nil {
-			fmt.Println(err)
+			log.Println("Error generating a unique identifier", err)
 			return
 		}
 
-		fmt.Println(uniqueIdentifier)
-
 		// Check if the unique identifier exists in the daily_unique_identifiers table
 		var isUnique bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
+		err = postgresDB.QueryRow("SELECT EXISTS(SELECT 1 FROM daily_unique_identifiers WHERE unique_identifier = $1)", uniqueIdentifier).Scan(&isUnique)
 		if err != nil {
 			log.Println("Error checking for existing unique identifier", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -275,7 +209,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			isUnique = false
 		} else {
 			// Add the unique identifier to the daily_unique_identifiers table
-			_, err := db.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
+			_, err := postgresDB.Exec("INSERT INTO daily_unique_identifiers (unique_identifier) VALUES ($1)", uniqueIdentifier)
 			if err != nil {
 				log.Println("Error inserting unique identifier", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -295,15 +229,12 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 			OS:         ua.OS,
 			Browser:    ua.Name,
 			Language:   eventReceiver.Language,
-			Country:    country,
-			Region:     region,
-			City:       city,
+			Country:    location.Country,
+			Region:     location.Region,
+			City:       location.City,
 			IsUnique:   isUnique,
 		}
 
-		fmt.Println(event)
-
-		// todo: create the TABLE in postgres
 		// perform the INSERT query to insert the event into the database
 		insertQuery := `
 			INSERT INTO events 
@@ -312,7 +243,7 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		`
 
-		_, err = db.Exec(insertQuery,
+		_, err = postgresDB.Exec(insertQuery,
 			websiteId,
 			domain,
 			event.Type,
@@ -339,9 +270,3 @@ func CreateEvent(db *sql.DB) http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 	}
 }
-
-// todo: add a get event handler
-
-// todo: add an update event handler
-
-// todo: add a delete event handler
