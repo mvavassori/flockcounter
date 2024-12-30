@@ -37,7 +37,7 @@ var priceIDToPlan = make(map[string]PlanDetails)
 
 func init() {
 	// todo: change it to prod key
-	stripe.Key = "sk_test_51ONYpVEjL7fX4p99WhzOhVfRqbdGmvYlI37v6tkSThMAYJZJ5CVIhZSU6UWzVCH1AyIMk8ocxp1A56fFrNSSjzXn00JAfKJEsm"
+	stripe.Key = os.Getenv("STRIPE_KEY")
 
 	// Populate the reverse map from planToPriceID // made this to being able define and update PriceID mappings in one place (planToPriceID)
 	for planDetails, priceID := range planToPriceID { // iterate over the planToPriceId map and "grab" the planDetails key and the priceID values
