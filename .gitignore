@@ -35,3 +35,8 @@ go.work
 
 # Local documentation for stuff i need to remember
 local-doc.md
+
+# secrets
+.env
+*.env
+!.env.example
