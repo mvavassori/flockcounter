@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/handlers"
-	"github.com/mvavassori/bare-analytics/db"
+	"github.com/mvavassori/flockcounter/db"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 }
 
 // Explanation to novices:
-// 1. The main.go file imports the db package and initializes the database connection using the CreateDBConnection function from the github.com/mvavassori/bare-analytics/db package.
-// 2. The main.go file calls the SetupRouter function from the github.com/mvavassori/bare-analytics/handlers package, passing the db connection as an argument.
+// 1. The main.go file imports the db package and initializes the database connection using the CreateDBConnection function from the github.com/mvavassori/flockcounter/db package.
+// 2. The main.go file calls the SetupRouter function from the github.com/mvavassori/flockcounter/handlers package, passing the db connection as an argument.
 // 3. The SetupRouter function in the handlers/routes.go file creates a new Gorilla Mux router and sets up the API routes with their corresponding handlers. It passes the db connection to the route handlers (defined for exmaple in handlers/visit_handler.go).
 // 4. The route handlers in handlers/visit_handler.go use the db connection to interact with the Postgres database and handle incoming requests.

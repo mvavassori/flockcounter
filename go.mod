@@ -1,4 +1,4 @@
-module github.com/mvavassori/bare-analytics
+module github.com/mvavassori/flockcounter
 
 go 1.21.6
 

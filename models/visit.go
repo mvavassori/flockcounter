@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/utils"
 )
 
 type Visit struct {

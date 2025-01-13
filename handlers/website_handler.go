@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/middleware"
-	"github.com/mvavassori/bare-analytics/models"
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/middleware"
+	"github.com/mvavassori/flockcounter/models"
+	"github.com/mvavassori/flockcounter/utils"
 )
 
 func GetWebsites(db *sql.DB) http.HandlerFunc {

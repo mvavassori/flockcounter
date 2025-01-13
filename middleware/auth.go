@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/utils"
 )
 
 // added because of type complains

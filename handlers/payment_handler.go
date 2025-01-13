@@ -11,8 +11,8 @@ import (
 
 	"strconv"
 
-	"github.com/mvavassori/bare-analytics/models"
-	"github.com/mvavassori/bare-analytics/services"
+	"github.com/mvavassori/flockcounter/models"
+	"github.com/mvavassori/flockcounter/services"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/checkout/session"
 

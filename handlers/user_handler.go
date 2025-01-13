@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/models"
-	"github.com/mvavassori/bare-analytics/services"
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/models"
+	"github.com/mvavassori/flockcounter/services"
+	"github.com/mvavassori/flockcounter/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 

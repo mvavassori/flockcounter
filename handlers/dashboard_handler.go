@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/utils"
 )
 
 func GetTopStats(db *sql.DB) http.HandlerFunc {

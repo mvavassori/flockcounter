@@ -7,7 +7,7 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/utils"
 )
 
 type User struct {

@@ -30,7 +30,7 @@ services:
 
   frontend:
     build:
-      context: ../bare-analytics-frontend
+      context: ../flockcounter-frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_BACKEND_URL: http://localhost:8080/api

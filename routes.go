@@ -4,8 +4,8 @@ import (
 	"database/sql"
 
 	"github.com/gorilla/mux"
-	"github.com/mvavassori/bare-analytics/handlers"
-	"github.com/mvavassori/bare-analytics/middleware"
+	"github.com/mvavassori/flockcounter/handlers"
+	"github.com/mvavassori/flockcounter/middleware"
 	"github.com/oschwald/geoip2-golang"
 )
 

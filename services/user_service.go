@@ -3,7 +3,7 @@ package services
 import (
 	"database/sql"
 
-	"github.com/mvavassori/bare-analytics/models"
+	"github.com/mvavassori/flockcounter/models"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/subscription"
 )

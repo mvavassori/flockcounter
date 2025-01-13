@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/mileusna/useragent"
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/utils"
 	"github.com/oschwald/geoip2-golang"
 
-	"github.com/mvavassori/bare-analytics/models"
+	"github.com/mvavassori/flockcounter/models"
 )
 
 // Will be displayed in the dashboard or a dedicated different section/page

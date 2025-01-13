@@ -14,8 +14,8 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/mileusna/useragent"
-	"github.com/mvavassori/bare-analytics/models"
-	"github.com/mvavassori/bare-analytics/utils"
+	"github.com/mvavassori/flockcounter/models"
+	"github.com/mvavassori/flockcounter/utils"
 
 	"github.com/oschwald/geoip2-golang"
 )
