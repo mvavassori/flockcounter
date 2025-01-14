@@ -169,8 +169,15 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 		var websiteId int
 		err = postgresDB.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
 		if err != nil {
-			log.Println("Error looking up websiteId", err)
-			http.Error(w, "Website not found", http.StatusNotFound)
+			if err == sql.ErrNoRows {
+				// Website not registered - silently ignore the visit
+				log.Printf("Ignoring visit from unregistered domain: %s", domain)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			// Handle other database errors
+			log.Printf("Database error looking up websiteId: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -182,7 +189,7 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 		}
 
 		// Generate a unique identifier
-		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, string(parsedIP), visitReceiver.UserAgent) // todo: change to ip address variable later
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, string(parsedIP), visitReceiver.UserAgent)
 		if err != nil {
 			log.Println("Error generating a unique identifier", err)
 			return
