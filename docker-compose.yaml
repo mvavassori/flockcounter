@@ -10,14 +10,14 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_LISTEN_ADDRESSES: "*"
     volumes:
-      - test-postgres-data:/var/lib/postgresql/data
+      - local-postgres-data:/var/lib/postgresql/data
 
   backend:
     build: .
     ports:
       - 8080:8080
     environment:
-      ENV: production
+      ENV: ${ENV}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: database
@@ -44,5 +44,5 @@ services:
       - backend
 
 volumes:
-  test-postgres-data:
+  local-postgres-data:
     external: true
