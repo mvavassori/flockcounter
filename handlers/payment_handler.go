@@ -27,10 +27,10 @@ type PlanDetails struct {
 
 // todo change to prod price ids
 var planToPriceID = map[PlanDetails]string{
-	{"basic", "monthly"}:    "price_1Ppu8VEjL7fX4p99LqYqruOC",
-	{"basic", "yearly"}:     "price_1Puz0cEjL7fX4p99uzMKrtD2",
-	{"business", "monthly"}: "price_1PuyzDEjL7fX4p9997UVPTP1",
-	{"business", "yearly"}:  "price_1Puz3DEjL7fX4p99LV0Mvly5",
+	{"basic", "monthly"}:    "price_1Qh8V9EjL7fX4p99Boqi7jO9",
+	{"basic", "yearly"}:     "price_1Qh8XNEjL7fX4p99pAeKMecA",
+	{"business", "monthly"}: "price_1Qh8VSEjL7fX4p99nlMJ5yFB",
+	{"business", "yearly"}:  "price_1Qh8WSEjL7fX4p99id1NdSfG",
 }
 
 var priceIDToPlan = make(map[string]PlanDetails)
@@ -67,7 +67,6 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Error getting user", http.StatusInternalServerError)
 			return
 		}
-
 		// Check for existing subscriptions
 		existingSubscriptions, err := services.GetActiveSubscription(user.StripeCustomerID.String)
 		if err != nil {
@@ -90,7 +89,7 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 		req.PlanPriceID = priceID
 
 		var stripeCustomerID string
-		if user.StripeCustomerID.Valid {
+		if user.StripeCustomerID.Valid && user.StripeCustomerID.String != "" {
 			stripeCustomerID = user.StripeCustomerID.String
 		} else {
 			customerParams := &stripe.CustomerParams{
@@ -98,27 +97,24 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			}
 			customerParams.AddMetadata("userId", strconv.Itoa(req.UserID))
 			customerParams.AddMetadata("originalEmail", req.Email)
-
 			newCustomer, err := customer.New(customerParams)
 			if err != nil {
-				log.Printf("customer.New: %v", err)
+				log.Printf("Failed to create customer: %v", err)
 				http.Error(w, "Error creating customer", http.StatusInternalServerError)
 				return
 			}
 			stripeCustomerID = newCustomer.ID
-
-			// Update user with new Stripe customer ID
-			user.StripeCustomerID = sql.NullString{String: stripeCustomerID, Valid: true}
-			err = services.AddStripeCustomerID(db, user)
+			_, err = db.Exec("UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
+				sql.NullString{String: stripeCustomerID, Valid: true}, user.ID)
 			if err != nil {
-				log.Printf("services.UpdateUser: %v", err)
+				log.Printf("Failed to update user with customer ID: %v", err)
 				http.Error(w, "Error updating user", http.StatusInternalServerError)
 				return
 			}
 		}
 
 		params := &stripe.CheckoutSessionParams{
-			Customer: &stripeCustomerID,
+			Customer: stripe.String(stripeCustomerID),
 			LineItems: []*stripe.CheckoutSessionLineItemParams{
 				{
 					Price:    stripe.String(req.PlanPriceID),

@@ -34,6 +34,10 @@ func UpdateSubscriptionStatusAndPlan(db *sql.DB, user models.User) error {
 }
 
 func GetActiveSubscription(customerID string) (*stripe.Subscription, error) {
+	// Return nil if customer ID is empty (no subscriptions possible)
+	if customerID == "" {
+		return nil, nil
+	}
 	params := &stripe.SubscriptionListParams{
 		Customer: stripe.String(customerID),
 		Status:   stripe.String("active"),
