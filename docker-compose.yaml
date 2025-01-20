@@ -11,6 +11,15 @@ services:
       POSTGRES_LISTEN_ADDRESSES: "*"
     volumes:
       - local-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     build: .
@@ -26,7 +35,8 @@ services:
       POSTGRES_SSLMODE: disable
       STRIPE_KEY: ${STRIPE_KEY}
     depends_on:
-      - database
+      database:
+        condition: service_healthy
 
   frontend:
     build:
