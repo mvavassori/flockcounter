@@ -40,3 +40,7 @@ local-doc.md
 .env
 *.env
 !.env.example
+
+# prod stuff
+nginx.prod.conf
+docker-compose.override.yaml
