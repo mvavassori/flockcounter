@@ -40,7 +40,11 @@ local-doc.md
 .env
 *.env
 !.env.example
+.env.prod
 
 # prod stuff
 nginx.prod.conf
 docker-compose.override.yaml
+docker-compose.prod.yaml
+docker-compose.dev.yaml
+*.tar
