@@ -39,10 +39,10 @@ services:
       context: ../flockcounter-frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_BACKEND_URL: http://localhost/backend-api # Change localhost to your domain
+        NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_URL}/backend-api
         NEXT_PUBLIC_TEST_STRIPE_KEY: ${NEXT_PUBLIC_TEST_STRIPE_KEY}
     environment:
-      NEXTAUTH_URL: http://localhost # Change localhost to your domain
+      NEXTAUTH_URL: ${PUBLIC_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       BACKEND_URL: http://backend:8080/api
     depends_on:
