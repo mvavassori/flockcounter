@@ -13,13 +13,13 @@ require (
 
 require (
 	github.com/oschwald/geoip2-golang v1.11.0
-	github.com/stripe/stripe-go/v81 v81.2.0
-	golang.org/x/crypto v0.31.0
+	github.com/stripe/stripe-go/v81 v81.3.0
+	golang.org/x/crypto v0.32.0
 )
 
 require (
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 )
 
 require (
