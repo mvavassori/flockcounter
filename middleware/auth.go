@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/mvavassori/flockcounter/utils"
@@ -15,6 +16,12 @@ type contextKey string
 
 const UserIdKey contextKey = "userId"
 const RoleKey contextKey = "role"
+
+var demoDomain string
+
+func init() {
+	demoDomain = os.Getenv("NEXT_PUBLIC_DEMO_DOMAIN")
+}
 
 func AdminOrAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +151,14 @@ func AdminOrUserWebsite(db *sql.DB) func(http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+
+			// For the demo domain, only allow GET requests without token checks.
+			if urlWebsiteDomain == demoDomain && r.Method == "GET" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// For non-GET requests or non-demo domains, perform full auth check.
 
 			// Check if the domain exists in the database
 			var domainExists bool
