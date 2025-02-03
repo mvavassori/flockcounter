@@ -113,6 +113,8 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
+		publicURL := os.Getenv("PUBLIC_URL")
+
 		params := &stripe.CheckoutSessionParams{
 			Customer: stripe.String(stripeCustomerID),
 			LineItems: []*stripe.CheckoutSessionLineItemParams{
@@ -122,8 +124,8 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 				},
 			},
 			Mode:         stripe.String(string(stripe.CheckoutSessionModeSubscription)),
-			SuccessURL:   stripe.String("http://localhost:3000/success"),  // todo change to prod
-			CancelURL:    stripe.String("http://localhost:3000/canceled"), // todo change to prod
+			SuccessURL:   stripe.String(publicURL + "/success"),
+			CancelURL:    stripe.String(publicURL + "/canceled"),
 			AutomaticTax: &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
 			CustomerUpdate: &stripe.CheckoutSessionCustomerUpdateParams{
 				Address: stripe.String("auto"),
