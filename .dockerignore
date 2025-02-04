@@ -2,5 +2,7 @@ tmp
 .air.toml
 .env
 .envrc
+.env.example
+*.tar
 README.md
 .gitignore
