@@ -30,6 +30,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_SSLMODE: disable
       STRIPE_KEY: ${STRIPE_KEY}
+      PUBLIC_URL: ${PUBLIC_URL}
+      NEXT_PUBLIC_DEMO_DOMAIN: ${NEXT_PUBLIC_DEMO_DOMAIN}
     depends_on:
       database:
         condition: service_healthy
