@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mvavassori/flockcounter/middleware"
 	"github.com/mvavassori/flockcounter/models"
 	"github.com/mvavassori/flockcounter/services"
 	"github.com/mvavassori/flockcounter/utils"
@@ -525,6 +526,34 @@ func GetUserWebsiteLimits(db *sql.DB) http.HandlerFunc {
 		id, err := utils.ExtractIDFromURL(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get the role from the context
+		role, ok := r.Context().Value(middleware.RoleKey).(string)
+		if !ok {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// **Admins should have unlimited websites**
+		if role == "admin" {
+			responseData := map[string]interface{}{
+				"plan":          "admin",
+				"websiteCount":  0,  // Admins can add unlimited websites
+				"maxWebsites":   -1, // -1 signifies unlimited
+				"canAddWebsite": true,
+			}
+			jsonResponse, err := json.Marshal(responseData)
+			if err != nil {
+				log.Println("Error encoding JSON:", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(jsonResponse)
 			return
 		}
 

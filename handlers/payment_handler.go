@@ -35,9 +35,12 @@ var planToPriceID = map[PlanDetails]string{
 
 var priceIDToPlan = make(map[string]PlanDetails)
 
+var publicURL string
+
 func init() {
 	// todo: change it to prod key
 	stripe.Key = os.Getenv("STRIPE_KEY")
+	publicURL = os.Getenv("PUBLIC_URL")
 
 	// Populate the reverse map from planToPriceID // made this to being able define and update PriceID mappings in one place (planToPriceID)
 	for planDetails, priceID := range planToPriceID { // iterate over the planToPriceId map and "grab" the planDetails key and the priceID values
@@ -113,8 +116,6 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
-		publicURL := os.Getenv("PUBLIC_URL")
-
 		params := &stripe.CheckoutSessionParams{
 			Customer: stripe.String(stripeCustomerID),
 			LineItems: []*stripe.CheckoutSessionLineItemParams{
@@ -125,7 +126,7 @@ func CreateCheckoutSession(db *sql.DB) http.HandlerFunc {
 			},
 			Mode:         stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 			SuccessURL:   stripe.String(publicURL + "/success"),
-			CancelURL:    stripe.String(publicURL + "/canceled"),
+			CancelURL:    stripe.String(publicURL + "/cancel"),
 			AutomaticTax: &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
 			CustomerUpdate: &stripe.CheckoutSessionCustomerUpdateParams{
 				Address: stripe.String("auto"),

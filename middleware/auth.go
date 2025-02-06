@@ -138,7 +138,10 @@ func AdminOrOwner(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		// Add userId and role to context
+		ctx := context.WithValue(r.Context(), RoleKey, role)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
