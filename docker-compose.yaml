@@ -5,8 +5,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_LISTEN_ADDRESSES: "*"
+      # Listen on all interfaces inside the container; access is restricted by the network below.
+      POSTGRES_LISTEN_ADDRESSES: "0.0.0.0"
     volumes:
       - local-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -18,6 +18,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - internal
 
   backend:
     build: .
@@ -30,11 +32,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_SSLMODE: disable
       STRIPE_KEY: ${STRIPE_KEY}
+      STRIPE_ENDPOINT_SECRET: ${STRIPE_ENDPOINT_SECRET}
       PUBLIC_URL: ${PUBLIC_URL}
       NEXT_PUBLIC_DEMO_DOMAIN: ${NEXT_PUBLIC_DEMO_DOMAIN}
     depends_on:
       database:
         condition: service_healthy
+    networks:
+      - internal
+      - public # Adding public so nginx can reach the backend
 
   frontend:
     build:
@@ -49,6 +55,8 @@ services:
       BACKEND_URL: http://backend:8080/api
     depends_on:
       - backend
+    networks:
+      - public
 
   nginx:
     image: nginx:bookworm
@@ -63,7 +71,15 @@ services:
     depends_on:
       - frontend
       - backend
+    networks:
+      - public
 
 volumes:
   local-postgres-data:
     external: true
+
+networks:
+  internal:
+    internal: true # This network is completely isolated from the outside.
+  public:
+    # No external: true line means Docker Compose will create it automatically.
