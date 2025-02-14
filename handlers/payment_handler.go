@@ -25,22 +25,41 @@ type PlanDetails struct {
 	Interval string
 }
 
-// todo change to prod price ids
-var planToPriceID = map[PlanDetails]string{
-	{"basic", "monthly"}:    "price_1Qh8V9EjL7fX4p99Boqi7jO9",
-	{"basic", "yearly"}:     "price_1Qh8XNEjL7fX4p99pAeKMecA",
-	{"business", "monthly"}: "price_1Qh8VSEjL7fX4p99nlMJ5yFB",
-	{"business", "yearly"}:  "price_1Qh8WSEjL7fX4p99id1NdSfG",
+var prodPlanToPriceID = map[PlanDetails]string{
+	{"basic", "monthly"}:    "price_1QsULrLEMSvAitJLuUyu1dx8",
+	{"basic", "yearly"}:     "price_1QsULrLEMSvAitJLXvQO6MmC",
+	{"business", "monthly"}: "price_1QsUMMLEMSvAitJLKz9QXywZ",
+	{"business", "yearly"}:  "price_1QsUMMLEMSvAitJLt3KmHBRK",
 }
 
-var priceIDToPlan = make(map[string]PlanDetails)
+var testPlanToPriceID = map[PlanDetails]string{
+	{"basic", "monthly"}:    "price_1QsQNxLEMSvAitJLhZtUMyjN",
+	{"basic", "yearly"}:     "price_1QsQNxLEMSvAitJLcjjMY4eI",
+	{"business", "monthly"}: "price_1QsQQpLEMSvAitJLd0uP9eSw",
+	{"business", "yearly"}:  "price_1QsQQpLEMSvAitJLc1mx52Iq",
+}
+
+var planToPriceID map[PlanDetails]string
+var priceIDToPlan map[string]PlanDetails
 
 var publicURL string
+var endpointSecret string
 
 func init() {
-	// todo: change it to prod key
+	environment := os.Getenv("ENV")
 	stripe.Key = os.Getenv("STRIPE_KEY")
 	publicURL = os.Getenv("PUBLIC_URL")
+	endpointSecret = os.Getenv("STRIPE_ENDPOINT_SECRET")
+
+	// Initialize both maps
+	priceIDToPlan = make(map[string]PlanDetails)
+
+	// Initialize the maps based on environment
+	if environment == "production" {
+		planToPriceID = prodPlanToPriceID
+	} else {
+		planToPriceID = testPlanToPriceID
+	}
 
 	// Populate the reverse map from planToPriceID // made this to being able define and update PriceID mappings in one place (planToPriceID)
 	for planDetails, priceID := range planToPriceID { // iterate over the planToPriceId map and "grab" the planDetails key and the priceID values
@@ -174,10 +193,10 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		// Replace this endpoint secret with your endpoint's unique secret
-		// If you are testing with the CLI, find the secret by running 'stripe listen' // todo: change this.
+		// If you are testing with the CLI, find the secret by running 'stripe listen'
 		// If you are using an endpoint defined with the API or dashboard, look in your webhook settings
 		// at https://dashboard.stripe.com/webhooks
-		endpointSecret := "whsec_1fc72b97ed963737df1dd4cc7ca20aac4989bf73120c87546a3e6abd2adf6fc0"
+
 		signatureHeader := r.Header.Get("Stripe-Signature")
 
 		event, err := webhook.ConstructEvent(payload, signatureHeader, endpointSecret)
@@ -238,13 +257,6 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				return
 			}
 
-			// todo: send email to user
-			// recipientEmail := "famigliavavassori@outlook.it"
-			// subject := "Subscription Success Subject"
-			// body := "Your subscription has been successful."
-
-			// utils.SendEmail(recipientEmail, subject, body)
-
 		case "customer.subscription.deleted":
 			var subscription stripe.Subscription
 			err := json.Unmarshal(event.Data.Raw, &subscription)
@@ -281,13 +293,6 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-
-			// todo: send email to user
-			// recipientEmail := "famigliavavassori@outlook.it"
-			// subject := "Subscription Canceled Subject"
-			// body := "Your subscription has been canceled."
-
-			// utils.SendEmail(recipientEmail, subject, body)
 
 			// Then define and call a func to handle the deleted subscription.
 			// handleSubscriptionCanceled(subscription)
@@ -341,73 +346,47 @@ func StripeWebhook(db *sql.DB) http.HandlerFunc {
 				return
 			}
 
-		// todo: send email to user
-		// recipientEmail := "famigliavavassori@outlook.it"
-		// subject := "Subscription Canceled Subject"
-		// body := "Your subscription has been canceled."
+			// case "customer.subscription.created":
+			// 	var subscription stripe.Subscription
+			// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+			// 	if err != nil {
+			// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+			// 		w.WriteHeader(http.StatusBadRequest)
+			// 		return
+			// 	}
+			// 	log.Printf("Subscription created for %s.", subscription.ID)
+			// // Then define and call a func to handle the successful attachment of a PaymentMethod.
+			// customerID := subscription.Customer.ID
+			// log.Printf("Customer ID: %s", customerID)
+			// // handleSubscriptionCreated(subscription)
 
-		// utils.SendEmail(recipientEmail, subject, body)
+			// case "customer.subscription.trial_will_end":
+			// 	var subscription stripe.Subscription
+			// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+			// 	if err != nil {
+			// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+			// 		w.WriteHeader(http.StatusBadRequest)
+			// 		return
+			// 	}
+			// 	log.Printf("Subscription trial will end for %s.", subscription.ID)
+			// // Then define and call a func to handle the successful attachment of a PaymentMethod.
+			// // handleSubscriptionTrialWillEnd(subscription)
 
-		// case "customer.subscription.created":
-		// 	var subscription stripe.Subscription
-		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
-		// 	if err != nil {
-		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-		// 		w.WriteHeader(http.StatusBadRequest)
-		// 		return
-		// 	}
-		// 	log.Printf("Subscription created for %s.", subscription.ID)
-		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// customerID := subscription.Customer.ID
-		// log.Printf("Customer ID: %s", customerID)
-		// // handleSubscriptionCreated(subscription)
+			// case "entitlements.active_entitlement_summary.updated":
+			// 	var subscription stripe.Subscription
+			// 	err := json.Unmarshal(event.Data.Raw, &subscription)
+			// 	if err != nil {
+			// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
+			// 		w.WriteHeader(http.StatusBadRequest)
+			// 		return
+			// 	}
+			// 	log.Printf("Active entitlement summary updated for %s.", subscription.ID)
+			// // Then define and call a func to handle active entitlement summary updated.
+			// // handleEntitlementUpdated(subscription)
 
-		// case "customer.subscription.trial_will_end":
-		// 	var subscription stripe.Subscription
-		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
-		// 	if err != nil {
-		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-		// 		w.WriteHeader(http.StatusBadRequest)
-		// 		return
-		// 	}
-		// 	log.Printf("Subscription trial will end for %s.", subscription.ID)
-		// // Then define and call a func to handle the successful attachment of a PaymentMethod.
-		// // handleSubscriptionTrialWillEnd(subscription)
-
-		// case "entitlements.active_entitlement_summary.updated":
-		// 	var subscription stripe.Subscription
-		// 	err := json.Unmarshal(event.Data.Raw, &subscription)
-		// 	if err != nil {
-		// 		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-		// 		w.WriteHeader(http.StatusBadRequest)
-		// 		return
-		// 	}
-		// 	log.Printf("Active entitlement summary updated for %s.", subscription.ID)
-		// // Then define and call a func to handle active entitlement summary updated.
-		// // handleEntitlementUpdated(subscription)
 		default:
 			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
 		}
 		w.WriteHeader(http.StatusOK)
 	}
 }
-
-// func TestEmailSending() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		log.Println("TestEmailSending handler called")
-
-// 		recipientEmail := "famigliavavassori@outlook.it"
-// 		subject := "Test Email Subject"
-// 		body := "This is a test email body sent from Go!"
-
-// 		log.Printf("Sending test email to: %s", recipientEmail)
-// 		err := utils.SendEmail(recipientEmail, subject, body)
-// 		if err != nil {
-// 			log.Printf("Failed to send test email: %v", err)
-// 			w.WriteHeader(http.StatusInternalServerError)
-// 			return
-// 		}
-// 		log.Println("Test email sent successfully!")
-// 		w.WriteHeader(http.StatusOK)
-// 	}
-// }
