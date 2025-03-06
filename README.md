@@ -82,7 +82,3 @@ This section provides a high-level overview of the setup process. More detailed 
 
 10. **Air (for development):**
     The `.air.toml` file configures the `air` tool for hot-reloading during development. This allows for faster development cycles.
-
-## Integration
-
-To integrate FlockCounter into your website, include the tracking script in your HTML:
