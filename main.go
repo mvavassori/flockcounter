@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/handlers"
 	"github.com/mvavassori/flockcounter/db"
@@ -32,11 +33,16 @@ func main() {
 
 	log.Printf("Server is listening on port %d...\n", port)
 
-	err = http.ListenAndServe(address, handlers.CORS( // cors config
-		handlers.AllowedOrigins([]string{"*"}),
-		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}),
-		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
-	)(router))
+	if os.Getenv("ENV") == "development" {
+		err = http.ListenAndServe(address, handlers.CORS( // cors config for development
+			handlers.AllowedOrigins([]string{"*"}),
+			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}),
+			handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
+		)(router))
+	} else {
+		err = http.ListenAndServe(address, router) // nginx will handle cors
+	}
+
 	if err != nil {
 		log.Fatalf("Failed to start server: %v\n", err)
 	}
