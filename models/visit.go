@@ -56,8 +56,8 @@ type VisitInsert struct {
 	Country         string         `json:"country"`
 	Region          string         `json:"region"`
 	City            string         `json:"city"`
-	TimeSpentOnPage int            `json:"timeSpentOnPage"`
 	IsUnique        bool           `json:"isUnique"`
+	TimeSpentOnPage int            `json:"timeSpentOnPage"`
 	UTMSource       sql.NullString `json:"utmSource"`
 	UTMMedium       sql.NullString `json:"utmMedium"`
 	UTMCampaign     sql.NullString `json:"utmCampaign"`
