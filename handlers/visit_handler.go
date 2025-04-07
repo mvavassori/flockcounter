@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"log"
 	"net"
@@ -138,6 +139,41 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 
 		domain := url.Hostname()
 
+		// Determine the alternative domain form (add or remove www.)
+		var alternativeDomain string
+		if strings.HasPrefix(domain, "www.") {
+			alternativeDomain = strings.TrimPrefix(domain, "www.")
+		} else {
+			alternativeDomain = "www." + domain
+		}
+
+		// Look up the websiteId using either the original domain or the alternative
+		var websiteId int
+		var registeredDomain string // store the domain as it is registered in the db
+
+		// The ORDER BY line ensures that if both domain.com ($1) and www.domain.com ($2) exist, it will always return domain.com first
+		query := `
+			SELECT id, domain
+			FROM websites
+			WHERE domain = $1 OR domain = $2
+			ORDER BY (CASE WHEN domain = $1 THEN 1 ELSE 2 END)
+			LIMIT 1
+		`
+
+		err = postgresDB.QueryRow(query, domain, alternativeDomain).Scan(&websiteId, &registeredDomain)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// Website not registered - silently ignore the visit
+				log.Printf("Ignoring visit from unregistered domain (checked %s and %s)", domain, alternativeDomain)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			// Handle other database errors
+			log.Printf("Database error looking up websiteId for %s/%s: %v", domain, alternativeDomain, err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
 		utmSource := url.Query().Get("utm_source")
 		utmMedium := url.Query().Get("utm_medium")
 		utmCampaign := url.Query().Get("utm_campaign")
@@ -165,22 +201,6 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 			referrer = referrerURL.Host + referrerURL.Path
 		}
 
-		// Look up the websiteId using the domain
-		var websiteId int
-		err = postgresDB.QueryRow("SELECT id FROM websites WHERE domain = $1", domain).Scan(&websiteId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// Website not registered - silently ignore the visit
-				log.Printf("Ignoring visit from unregistered domain: %s", domain)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			// Handle other database errors
-			log.Printf("Database error looking up websiteId: %v", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
 		// Generate daily salt or grab from cache if already generated
 		dailySalt, err := utils.GenerateDailySalt()
 		if err != nil {
@@ -189,7 +209,7 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 		}
 
 		// Generate a unique identifier
-		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, domain, string(parsedIP), visitReceiver.UserAgent)
+		uniqueIdentifier, err := utils.GenerateUniqueIdentifier(dailySalt, registeredDomain, string(parsedIP), visitReceiver.UserAgent)
 		if err != nil {
 			log.Println("Error generating a unique identifier", err)
 			return
@@ -220,6 +240,8 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 
 		// Create a VisitInsert struct to hold the data to be inserted into the database
 		visit := models.VisitInsert{
+			WebsiteID:       websiteId,
+			WebsiteDomain:   registeredDomain,
 			Timestamp:       visitReceiver.Timestamp,
 			Referrer:        referrer,
 			URL:             visitReceiver.URL,
@@ -229,8 +251,8 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 			Browser:         ua.Name,
 			Language:        visitReceiver.Language,
 			Country:         location.Country,
-			Region:          location.City,
-			City:            location.Region,
+			Region:          location.Region,
+			City:            location.City,
 			IsUnique:        isUnique,
 			TimeSpentOnPage: visitReceiver.TimeSpentOnPage,
 			UTMSource: sql.NullString{
@@ -263,8 +285,8 @@ func CreateVisit(postgresDB *sql.DB, geoipDB *geoip2.Reader) http.HandlerFunc {
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
 		`
 		_, err = postgresDB.Exec(insertQuery,
-			websiteId,
-			domain,
+			visit.WebsiteID,
+			visit.WebsiteDomain,
 			visit.Timestamp,
 			visit.Referrer,
 			visit.URL,
